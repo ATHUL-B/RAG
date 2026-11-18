@@ -162,6 +162,44 @@ class EvaluationConfig(StrictConfig):
     """Evidence passes the parse audit when this share of its tokens is on the parsed page."""
 
 
+class LLMProvider(StrEnum):
+    ANTHROPIC = "anthropic"
+    OLLAMA = "ollama"
+
+
+class Effort(StrEnum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    XHIGH = "xhigh"
+    MAX = "max"
+
+
+class PricingConfig(StrictConfig):
+    """USD per million tokens, used for cost accounting and the pre-run budget check."""
+
+    input_per_mtok: float = Field(default=4.0, ge=0.0)
+    output_per_mtok: float = Field(default=20.0, ge=0.0)
+
+
+class GenerationConfig(StrictConfig):
+    """Grounded answer generation (ADR 0005, HLD 010)."""
+
+    provider: LLMProvider = LLMProvider.ANTHROPIC
+    model_id: str = Field(default="claude-opus-5-5", min_length=1)
+    effort: Effort = Effort.MEDIUM
+    """Claude only: thinking depth (thinking is always on for current Opus models)."""
+    max_tokens: PositiveInt = 16000
+    max_sources: PositiveInt = 5
+    refusal_fallbacks: bool = True
+    """Claude only: server-side fallback when a request is declined."""
+    ollama_url: str = "http://localhost:11434"
+    ollama_timeout_s: PositiveInt = 300
+    pricing: PricingConfig = PricingConfig()
+    expected_output_tokens: PositiveInt = 1500
+    """Per-question output (incl. thinking) assumed by the pre-run cost estimate."""
+
+
 class AppConfig(StrictConfig):
     experiment_name: str = Field(min_length=1)
     dataset: DatasetName = DatasetName.FINANCEBENCH
@@ -170,4 +208,5 @@ class AppConfig(StrictConfig):
     chunking: ChunkingConfig = ChunkingConfig()
     embedding: EmbeddingConfig = EmbeddingConfig()
     retrieval: RetrievalConfig = RetrievalConfig()
+    generation: GenerationConfig = GenerationConfig()
     evaluation: EvaluationConfig = EvaluationConfig()

@@ -27,9 +27,9 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 | # | Item | Guide | Status |
 | --- | --- | --- | --- |
-| 2.1 | LLM client (ADR: provider), context assembler with labelled sources, cited answers | 11 | todo |
+| 2.1 | LLM clients (Claude, Ollama; ADR 0005), labelled-source prompt, cited structured answers, deterministic answer checks + cost guard (HLD 010) | 11 | in-progress (code done; first paid run pending credentials) |
 | 2.2 | Correctness + faithfulness judges; calibrate on ~50 hand-labelled answers | 13 | todo |
-| 2.3 | Refusal path + our own unanswerable questions in `evals/` | 11, 13 | todo |
+| 2.3 | Refusal path (done in 2.1: `answerable: false` + provider refusals) + our own unanswerable questions in `evals/` | 11, 13 | todo |
 
 ## Phase 3: Improve one stage at a time (each = one ablation entry)
 
