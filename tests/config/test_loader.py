@@ -60,3 +60,18 @@ def test_evaluation_ks_must_be_positive(tmp_path: Path) -> None:
 def test_chunks_dir_is_namespaced_by_chunker_fingerprint() -> None:
     config = AppConfig(experiment_name="x")
     assert config.paths.chunks_dir("abc") == Path("data/processed/chunks/abc")
+
+
+@pytest.mark.parametrize("name", ["filters.yaml", "filters-window1.yaml"])
+def test_committed_ablation_configs_are_valid_and_differ_only_in_filters(name: str) -> None:
+    baseline = load_config(REPO_ROOT / "configs" / "baseline.yaml")
+    ablation = load_config(REPO_ROOT / "configs" / name)
+    assert ablation.retrieval.filters.enabled
+    same = {"experiment_name": "x", "retrieval": None}
+    assert baseline.model_copy(update=same) == ablation.model_copy(update=same)
+
+
+def test_unknown_filter_field_is_rejected(tmp_path: Path) -> None:
+    content = "experiment_name: x\nretrieval:\n  filters:\n    fields: [sector]\n"
+    with pytest.raises(ConfigError, match="fields"):
+        load_config(_write(tmp_path, content))

@@ -5,6 +5,8 @@ from rag.domain.models import (
     Chunk,
     ChunkSet,
     Document,
+    Filters,
+    FilterValue,
     GoldenItem,
     Metadata,
     MetadataValue,
@@ -12,6 +14,7 @@ from rag.domain.models import (
     Query,
     ScoredChunk,
     SourceSpan,
+    matches,
 )
 
 __all__ = [
@@ -20,6 +23,8 @@ __all__ = [
     "Chunk",
     "ChunkSet",
     "Document",
+    "FilterValue",
+    "Filters",
     "GoldenItem",
     "Metadata",
     "MetadataValue",
@@ -29,4 +34,5 @@ __all__ = [
     "SourceSpan",
     "config_fingerprint",
     "make_chunk_id",
+    "matches",
 ]

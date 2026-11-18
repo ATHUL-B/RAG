@@ -83,8 +83,25 @@ class EmbeddingConfig(StrictConfig):
     device: str = Field(default="auto", pattern=r"^(auto|cpu|mps|cuda(:\d+)?)$")
 
 
+class FilterField(StrEnum):
+    COMPANY = "company"
+    YEAR = "year"
+
+
+class FilterConfig(StrictConfig):
+    """Metadata filters extracted from the question (HLD 006)."""
+
+    enabled: bool = False
+    fields: tuple[FilterField, ...] = (FilterField.COMPANY, FilterField.YEAR)
+    year_window: NonNegativeInt = 0
+    """Widen each mentioned year by this many years on both sides."""
+    relax_order: tuple[FilterField, ...] = (FilterField.YEAR, FilterField.COMPANY)
+    """Filters dropped one at a time, in this order, when a search finds nothing."""
+
+
 class RetrievalConfig(StrictConfig):
     top_k: PositiveInt = 5
+    filters: FilterConfig = FilterConfig()
 
 
 class EvaluationConfig(StrictConfig):

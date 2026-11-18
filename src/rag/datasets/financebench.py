@@ -41,6 +41,53 @@ _SAFE_DOC_NAME = re.compile(r"^[A-Za-z0-9_-]+$")
 _REASONING_SEPARATOR = re.compile(r"\s+OR\b\s*")
 
 
+COMPANY_ALIASES: dict[str, tuple[str, ...]] = {
+    # Catalog name -> other names and tickers people use in questions. Written from general
+    # knowledge (in production: a company master table). The catalog name itself always
+    # matches. Very short or ambiguous tickers (e.g. Boeing "BA", Coca-Cola "KO") are omitted.
+    "3M": ("3M Company", "MMM"),
+    "AES Corporation": ("AES",),
+    "AMD": ("Advanced Micro Devices",),
+    "Activision Blizzard": ("Activision", "ATVI"),
+    "Adobe": ("ADBE",),
+    "Amazon": ("Amazon.com", "AMZN"),
+    "Amcor": ("AMCR",),
+    "American Express": ("AmEx", "AXP"),
+    "American Water Works": ("American Water", "AWK"),
+    "Apple": ("AAPL",),
+    "Best Buy": ("BestBuy", "BBY"),
+    "Block": ("Block Inc", "Square", "Square Inc"),
+    "Boeing": (),
+    "CVS Health": ("CVS",),
+    "Coca-Cola": ("Coca Cola", "Coke", "The Coca-Cola Company"),
+    "Corning": ("GLW",),
+    "Costco": ("COST",),
+    "FedEx": ("Federal Express", "FDX"),
+    "Foot Locker": ("FootLocker",),
+    "General Mills": ("GIS",),
+    "Intel": ("INTC",),
+    "JPMorgan": ("JP Morgan", "JPMorgan Chase", "JPM"),
+    "Johnson & Johnson": ("Johnson and Johnson", "J&J", "JnJ", "JNJ"),
+    "Kraft Heinz": ("Kraft", "KHC"),
+    "Lockheed Martin": ("Lockheed", "LMT"),
+    "MGM Resorts": ("MGM",),
+    "McDonalds": ("McDonald's", "MCD"),
+    "Microsoft": ("MSFT",),
+    "Netflix": ("NFLX",),
+    "Nike": ("NKE",),
+    "Oracle": ("ORCL",),
+    "PG&E Corporation": ("PG&E", "PCG", "Pacific Gas and Electric"),
+    "Paypal": ("PYPL",),
+    "PepsiCo": ("Pepsi", "PEP"),
+    "Pfizer": ("PFE",),
+    "Salesforce": ("CRM",),
+    "Ulta Beauty": ("Ulta",),
+    "Verizon": ("VZ",),
+    "Walmart": ("Wal-Mart", "WMT"),
+    "eBay": (),
+}
+
+
 # --------------------------------------------------------------------------- raw records
 
 

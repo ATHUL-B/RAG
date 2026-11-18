@@ -15,16 +15,28 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rag.config import load_config
-from rag.datasets.financebench import FinanceBenchDataset
+from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
 from rag.evaluation.retrieval_report import OVERALL, RetrievalEvaluator
-from rag.evaluation.retrieval_runner import RetrievalEvalRunner, indexed_units
+from rag.evaluation.retrieval_runner import (
+    RetrievalEvalRunner,
+    doc_metadata_from_chunks,
+    indexed_units,
+)
 from rag.indexing.factory import build_embedder, dense_index_dir
 from rag.indexing.vector_store import ExactVectorStore
 from rag.ingestion.factory import build_chunker
-from rag.retrieval.dense import DenseRetriever
+from rag.retrieval.factory import build_retriever
 from rag.storage import atomic_write_bytes
 
-SHOWN_METRICS = ("recall@{k}", "precision@{k}", "hit@{k}", "ndcg@{k}", "mrr", "doc_hit@{k}")
+SHOWN_METRICS = (
+    "recall@{k}",
+    "precision@{k}",
+    "hit@{k}",
+    "ndcg@{k}",
+    "mrr",
+    "doc_hit@{k}",
+    "filter_ok",
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,10 +53,11 @@ def main(argv: list[str] | None = None) -> int:
     embedder.embed_query("warm-up")  # load the model outside the timed loop
     top_k = config.retrieval.top_k
     runner = RetrievalEvalRunner(
-        retriever=DenseRetriever(embedder, store),
+        retriever=build_retriever(config.retrieval, embedder, store, COMPANY_ALIASES),
         evaluator=RetrievalEvaluator(config.evaluation.ks),
         indexed=indexed_units(store.chunks),
         top_k=top_k,
+        doc_metadata=doc_metadata_from_chunks(store.chunks),
     )
     result = runner.run(items)
 
@@ -59,6 +72,9 @@ def main(argv: list[str] | None = None) -> int:
     names = [m.format(k=top_k) for m in SHOWN_METRICS]
     print(f"run {run_id}: {len(result.traces)} questions, index {index_dir.name}")
     print(f"status @top{top_k}: {dict(result.status_counts)}")
+    filtered = sum(bool(t.applied_filters) for t in result.traces)
+    relaxed = sum(bool(t.relaxed) for t in result.traces)
+    print(f"filters applied: {filtered}/{len(result.traces)} questions, relaxed: {relaxed}")
     print(f"retrieval latency ms: { {k: round(v, 1) for k, v in result.latency_ms.items()} }\n")
     print(f"{'segment':<58} {'n':>4}  " + "  ".join(f"{n:>12}" for n in names))
     for segment, summary_row in result.report.segments.items():

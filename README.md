@@ -21,6 +21,7 @@ uv run python scripts/chunk_documents.py   # -> data/processed/chunks/<fingerpri
 uv run python scripts/audit_chunking.py    # how much evidence fits in a single chunk
 uv run python scripts/build_index.py       # embed chunks (bge-small, local) -> data/indexes/dense/
 uv run python scripts/evaluate_retrieval.py  # recall@K, nDCG, MRR per segment + traces in runs/
+uv run python scripts/evaluate_retrieval.py --config configs/filters.yaml  # ablation: metadata filters
 ```
 
 Other commands: `make format`, `make test`, `make test-slow` (network/model tests),

@@ -30,11 +30,18 @@ def _retriever() -> DenseRetriever:
 
 
 def test_retrieves_top_k_by_similarity() -> None:
-    hits = _retriever().retrieve(Query(text="net income"), k=2)
-    assert {h.chunk.chunk_id for h in hits} == {"a", "b"}
-    assert [h.rank for h in hits] == [1, 2]
+    result = _retriever().retrieve(Query(text="net income"), k=2)
+    assert {h.chunk.chunk_id for h in result.candidates} == {"a", "b"}
+    assert [h.rank for h in result.candidates] == [1, 2]
+    assert result.applied_filters == {}
 
 
 def test_passes_query_filters_to_the_store() -> None:
-    hits = _retriever().retrieve(Query(text="net income", filters={"year": 2022}), k=5)
-    assert [h.chunk.chunk_id for h in hits] == ["b"]
+    result = _retriever().retrieve(Query(text="net income", filters={"year": 2022}), k=5)
+    assert [h.chunk.chunk_id for h in result.candidates] == ["b"]
+    assert result.applied_filters == {"year": 2022}
+
+
+def test_tuple_filter_means_any_of() -> None:
+    result = _retriever().retrieve(Query(text="net income", filters={"year": (2022, 2023)}), k=5)
+    assert {h.chunk.chunk_id for h in result.candidates} == {"a", "b", "c"}

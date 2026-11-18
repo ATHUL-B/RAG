@@ -1,13 +1,14 @@
 import pytest
 
-from rag.domain import Chunk, GoldenItem, Query, ScoredChunk, SourceSpan
+from rag.domain import Chunk, Filters, GoldenItem, Metadata, Query, ScoredChunk, SourceSpan
 from rag.evaluation.retrieval_report import RetrievalEvaluator
 from rag.evaluation.retrieval_runner import (
     RetrievalEvalRunner,
     RetrievalStatus,
+    doc_metadata_from_chunks,
     indexed_units,
 )
-from rag.retrieval.base import Retriever
+from rag.retrieval.base import RetrievalResult, Retriever
 
 
 def _chunk(chunk_id: str, doc_id: str, page: int) -> Chunk:
@@ -25,17 +26,27 @@ def _chunk(chunk_id: str, doc_id: str, page: int) -> Chunk:
 class ScriptedRetriever(Retriever):
     """Returns a fixed chunk list per question text."""
 
-    def __init__(self, results: dict[str, list[Chunk]]) -> None:
+    def __init__(
+        self,
+        results: dict[str, list[Chunk]],
+        filters: Filters | None = None,
+        relaxed: tuple[str, ...] = (),
+    ) -> None:
         self._results = results
+        self._filters = filters or {}
+        self._relaxed = relaxed
         self.depths: list[int] = []
 
-    def retrieve(self, query: Query, k: int) -> list[ScoredChunk]:
+    def retrieve(self, query: Query, k: int) -> RetrievalResult:
         self.depths.append(k)
         chunks = self._results[query.text][:k]
-        return [
+        hits = tuple(
             ScoredChunk(chunk=c, score=1.0 - i / 10, rank=i + 1, stage="dense")
             for i, c in enumerate(chunks)
-        ]
+        )
+        return RetrievalResult(
+            candidates=hits, applied_filters=self._filters, relaxed=self._relaxed
+        )
 
 
 class TickClock:
@@ -150,3 +161,50 @@ def test_rejects_empty_runs_and_invalid_top_k() -> None:
         _runner(ScriptedRetriever(RESULTS)).run([])
     with pytest.raises(ValueError, match="top_k"):
         RetrievalEvalRunner(ScriptedRetriever({}), RetrievalEvaluator([1]), set(), top_k=0)
+
+
+DOC_METADATA: dict[str, Metadata] = {
+    "D": {"company": "ACME", "year": 2018},
+    "OTHER": {"company": "ACME", "year": 2022},
+}
+
+
+def _filtered_runner(filters: Filters, relaxed: tuple[str, ...] = ()) -> RetrievalEvalRunner:
+    return RetrievalEvalRunner(
+        ScriptedRetriever(RESULTS, filters, relaxed),
+        RetrievalEvaluator(ks=[5]),
+        INDEXED,
+        top_k=3,
+        doc_metadata=DOC_METADATA,
+        clock=TickClock(0.01),
+    )
+
+
+def test_filter_that_excludes_the_evidence_is_its_own_failure() -> None:
+    result = _filtered_runner({"company": "ACME", "year": 2022}).run([_item("unindexed", 1)])
+    (trace,) = result.traces
+    assert trace.status is RetrievalStatus.FILTERED_OUT
+    assert trace.metrics["filter_ok"] == 0.0
+    assert trace.applied_filters == {"company": "ACME", "year": 2022}
+
+
+def test_correct_filter_is_recorded_with_relaxation() -> None:
+    result = _filtered_runner({"company": "ACME", "year": (2017, 2018)}, relaxed=("doc_type",)).run(
+        [_item("hit", 1)]
+    )
+    (trace,) = result.traces
+    assert trace.status is RetrievalStatus.HIT
+    assert trace.metrics["filter_ok"] == 1.0
+    assert trace.relaxed == ["doc_type"]
+
+
+def test_unfiltered_runs_count_as_filter_ok() -> None:
+    (trace,) = _runner(ScriptedRetriever(RESULTS)).run([_item("hit", 1)]).traces
+    assert trace.metrics["filter_ok"] == 1.0
+    assert trace.applied_filters == {}
+
+
+def test_doc_metadata_comes_from_the_first_chunk_of_each_document() -> None:
+    a = _chunk("a", "D", 1).model_copy(update={"metadata": {"year": 2018}})
+    b = _chunk("b", "D", 2).model_copy(update={"metadata": {"year": 1999}})
+    assert doc_metadata_from_chunks([a, b]) == {"D": {"year": 2018}}

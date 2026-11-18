@@ -15,7 +15,7 @@ import numpy as np
 import numpy.typing as npt
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from rag.domain import Chunk, Metadata, ScoredChunk
+from rag.domain import Chunk, Filters, ScoredChunk, matches
 from rag.errors import IndexingError, StorageError
 from rag.indexing.base import Matrix, Vector, VectorStore
 from rag.storage import atomic_write_bytes
@@ -92,7 +92,7 @@ class ExactVectorStore(VectorStore):
 
     # ------------------------------------------------------------------ read
 
-    def search(self, vector: Vector, k: int, filters: Metadata | None = None) -> list[ScoredChunk]:
+    def search(self, vector: Vector, k: int, filters: Filters | None = None) -> list[ScoredChunk]:
         if k < 1:
             raise ValueError("k must be >= 1")
         query = np.asarray(vector, dtype=np.float32)
@@ -115,13 +115,10 @@ class ExactVectorStore(VectorStore):
             for rank, i in enumerate(top, start=1)
         ]
 
-    def _filter_mask(self, filters: Metadata) -> npt.NDArray[np.bool_]:
-        """Pre-filter (Part 8): a chunk is allowed only if every filter key matches."""
+    def _filter_mask(self, filters: Filters) -> npt.NDArray[np.bool_]:
+        """Pre-filter (Part 8): a chunk is allowed only if every filter matches."""
         return np.fromiter(
-            (
-                all(c.metadata.get(key) == value for key, value in filters.items())
-                for c in self._chunks
-            ),
+            (matches(c.metadata, filters) for c in self._chunks),
             dtype=np.bool_,
             count=len(self._chunks),
         )

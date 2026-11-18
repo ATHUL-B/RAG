@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import time
 from collections import Counter
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
-from rag.domain import Chunk, GoldenItem, Query, ScoredChunk
+from rag.domain import Chunk, Filters, GoldenItem, Metadata, Query, ScoredChunk, matches
 from rag.evaluation.evidence import evidence_unit, qrels_for, relevance_ids
 from rag.evaluation.retrieval_report import (
     MetricsReport,
@@ -29,6 +29,8 @@ class RetrievalStatus(StrEnum):
     HIT = "hit"
     PARTIAL = "partial"
     NOT_RETRIEVED = "not_retrieved"
+    FILTERED_OUT = "filtered_out"
+    """The applied metadata filters excluded every evidence document."""
     NOT_IN_INDEX = "not_in_index"
 
 
@@ -55,6 +57,8 @@ class QueryTrace(BaseModel):
     tags: list[str]
     evidence_units: list[str]
     status: RetrievalStatus
+    applied_filters: Filters
+    relaxed: list[str]
     retrieved: list[RetrievedRecord]
     timings_ms: dict[str, float]
     metrics: dict[str, float]
@@ -69,6 +73,14 @@ class RetrievalRunResult(BaseModel):
     status_counts: dict[RetrievalStatus, int]
     latency_ms: dict[str, float]
     skipped_unanswerable: list[str]
+
+
+def doc_metadata_from_chunks(chunks: Iterable[Chunk]) -> dict[str, Metadata]:
+    """Document-level metadata (company, year, ...) as copied onto each document's chunks."""
+    metadata: dict[str, Metadata] = {}
+    for chunk in chunks:
+        metadata.setdefault(chunk.doc_id, chunk.metadata)
+    return metadata
 
 
 def indexed_units(chunks: Iterable[Chunk]) -> set[str]:
@@ -87,6 +99,7 @@ class RetrievalEvalRunner:
         evaluator: RetrievalEvaluator,
         indexed: Collection[str],
         top_k: int,
+        doc_metadata: Mapping[str, Metadata] | None = None,
         clock: Clock = time.perf_counter,
     ) -> None:
         if top_k < 1:
@@ -95,6 +108,7 @@ class RetrievalEvalRunner:
         self._evaluator = evaluator
         self._indexed = indexed
         self._top_k = top_k
+        self._doc_metadata = doc_metadata or {}
         self._depth = max((*evaluator.ks, top_k))
         self._clock = clock
 
@@ -123,31 +137,53 @@ class RetrievalEvalRunner:
     def _run_one(self, item: GoldenItem) -> tuple[QueryTrace, QueryMetrics]:
         timer = StageTimer(self._clock)
         with timer.stage(RETRIEVE_STAGE):
-            hits = self._retriever.retrieve(Query(text=item.question), self._depth)
+            result = self._retriever.retrieve(Query(text=item.question), self._depth)
+        hits = result.candidates
 
         qrels = qrels_for(item)
         ids = relevance_ids([h.chunk for h in hits], item)
         metrics = self._evaluator.score(item.item_id, ids, qrels, tags=item.tags)
         evidence_docs = {span.doc_id for span in item.evidence}
         doc_hit = any(h.chunk.doc_id in evidence_docs for h in hits[: self._top_k])
-        scores = {**metrics.scores, f"doc_hit@{self._top_k}": float(doc_hit)}
+        filter_ok = self._filters_allow_evidence(result.applied_filters, evidence_docs)
+        scores = {
+            **metrics.scores,
+            f"doc_hit@{self._top_k}": float(doc_hit),
+            "filter_ok": float(filter_ok),
+        }
 
         trace = QueryTrace(
             item_id=item.item_id,
             question=item.question,
             tags=sorted(item.tags),
             evidence_units=sorted(qrels),
-            status=self._status(set(qrels), set(ids[: self._top_k])),
+            status=self._status(set(qrels), set(ids[: self._top_k]), filter_ok),
+            applied_filters=dict(result.applied_filters),
+            relaxed=list(result.relaxed),
             retrieved=_records(hits, ids, qrels.keys()),
             timings_ms=dict(timer.timings_ms),
             metrics=scores,
         )
         return trace, metrics.model_copy(update={"scores": scores})
 
-    def _status(self, evidence: set[str], found: set[str]) -> RetrievalStatus:
+    def _filters_allow_evidence(self, filters: Filters, evidence_docs: set[str]) -> bool:
+        """Would the applied filters let *any* evidence document through?
+
+        Documents without known metadata are assumed allowed (we cannot tell).
+        """
+        if not filters:
+            return True
+        return any(
+            doc not in self._doc_metadata or matches(self._doc_metadata[doc], filters)
+            for doc in evidence_docs
+        )
+
+    def _status(self, evidence: set[str], found: set[str], filter_ok: bool) -> RetrievalStatus:
         if not evidence & set(self._indexed):
             return RetrievalStatus.NOT_IN_INDEX
         hits = evidence & found
+        if not hits and not filter_ok:
+            return RetrievalStatus.FILTERED_OUT
         if not hits:
             return RetrievalStatus.NOT_RETRIEVED
         return RetrievalStatus.HIT if hits == evidence else RetrievalStatus.PARTIAL
