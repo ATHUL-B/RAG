@@ -27,6 +27,12 @@ uv run python scripts/evaluate_retrieval.py --config configs/filters.yaml  # abl
 uv run python scripts/evaluate_retrieval.py --config configs/hybrid.yaml   # ablation: dense + BM25 (RRF)
 uv run python scripts/evaluate_retrieval.py --config configs/rerank-bge.yaml  # ablation: + cross-encoder
 # current best: configs/pages-context.yaml (chunk + build_index with that config first)
+
+# Phase 2: answers with citations (needs ANTHROPIC_API_KEY in .env, see .env.example)
+uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --dry-run
+uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --limit 10
+# local model instead: install Ollama (https://ollama.com), `ollama pull llama3.1:8b`, then
+uv run python scripts/evaluate_generation.py --config configs/generation-ollama.yaml --limit 10
 uv run python scripts/compare_runs.py runs/<a> runs/<b>   # per-question diff + 95% bootstrap CI
 ```
 

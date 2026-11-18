@@ -11,22 +11,18 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from rag.config import RetrievalMode, load_config
-from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
+from rag.app import load_retrieval_stack
+from rag.config import load_config
+from rag.datasets.financebench import FinanceBenchDataset
 from rag.evaluation.retrieval_report import OVERALL, RetrievalEvaluator
 from rag.evaluation.retrieval_runner import (
     RetrievalEvalRunner,
     doc_metadata_from_chunks,
     indexed_units,
 )
-from rag.indexing.factory import build_embedder, dense_index_dir
-from rag.indexing.vector_store import ExactVectorStore
-from rag.ingestion.factory import build_chunker
-from rag.retrieval.factory import build_bm25_index, build_retriever
 from rag.storage import atomic_write_bytes
 
 SHOWN_METRICS = (
@@ -47,25 +43,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
-    embedder = build_embedder(config.embedding)
-    index_dir = dense_index_dir(config, build_chunker(config.chunking).fingerprint)
-    store = ExactVectorStore.load(index_dir, expected_model_id=embedder.model_id)
+    stack = load_retrieval_stack(config)
+    store = stack.store
     items = FinanceBenchDataset(config.paths.raw_dir / "financebench").golden_items()
-
-    keyword_index = None
-    if config.retrieval.mode is not RetrievalMode.DENSE:
-        started = time.perf_counter()
-        keyword_index = build_bm25_index(config.retrieval.bm25, store.chunks)
-        print(
-            f"bm25 index: {len(keyword_index)} chunks, {keyword_index.vocabulary_size} terms, "
-            f"built in {time.perf_counter() - started:.1f}s"
-        )
-    embedder.embed_query("warm-up")  # load the model outside the timed loop
     top_k = config.retrieval.top_k
     runner = RetrievalEvalRunner(
-        retriever=build_retriever(
-            config.retrieval, embedder, store, COMPANY_ALIASES, keyword_index
-        ),
+        retriever=stack.retriever,
         evaluator=RetrievalEvaluator(config.evaluation.ks),
         indexed=indexed_units(store.chunks),
         top_k=top_k,
@@ -82,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     atomic_write_bytes(out / "metrics.json", _json(summary))
 
     names = [m.format(k=top_k) for m in SHOWN_METRICS]
-    print(f"run {run_id}: {len(result.traces)} questions, index {index_dir.name}")
+    print(f"run {run_id}: {len(result.traces)} questions")
     print(f"status @top{top_k}: {dict(result.status_counts)}")
     filtered = sum(bool(t.applied_filters) for t in result.traces)
     relaxed = sum(bool(t.relaxed) for t in result.traces)

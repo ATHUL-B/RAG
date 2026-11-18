@@ -28,10 +28,11 @@ ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same 
 | `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `RecursiveChunker` (optionally page-aware), `ContextualChunker`, `HeaderContextualizer`, `TokenCounter`, `ChunkStage`, `build_parser`, `build_chunker` |
 | `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex`; `SentenceTransformerEmbedder`, `ExactVectorStore`, `BM25Index`, `analyze`, `IndexStage`, `build_embedder` |
 | `rag.retrieval` | Extract filters, retrieve, fuse, rerank | `FilterExtractor`, `Retriever` → `RetrievalResult`, `Fuser`, `Reranker`; `DenseRetriever`, `KeywordRetriever`, `HybridRetriever`, `ReciprocalRankFusion`, `CrossEncoderReranker`, `RerankingRetriever`, `CatalogFilterExtractor`, `FilteredRetriever`, `build_retriever` |
-| `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion` |
-| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `evidence` (qrels, relevance units), `RetrievalEvalRunner`, `QueryTrace`, `compare_runs` (paired bootstrap), `ParseAuditor`, `ChunkAuditor`, `Judge`, `Verdict` |
+| `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion`, `GenerationResult`; `SourcesContextAssembler`, `AnthropicLLMClient`, `OllamaLLMClient`, `GroundedAnswerGenerator`, `build_generator` |
+| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `evidence` (qrels, relevance units), `RetrievalEvalRunner`, `QueryTrace`, `GenerationEvalRunner`, `generation_metrics`, `compare_runs` (paired bootstrap), `ParseAuditor`, `ChunkAuditor`, `Judge`, `Verdict` |
 | `rag.observability` | Timing, latency percentiles, structured logs | `StageTimer`, `latency_summary`, `JsonFormatter` |
 | `rag.config` | Typed YAML config | `AppConfig`, `load_config` |
+| `rag.app` | Composition root: load the configured retrieval stack | `load_retrieval_stack` |
 | `rag.storage` | Atomic writes, safe keys, JSON artifacts | `JsonArtifactStore`, `atomic_write_bytes` |
 | `rag.datasets` | Public dataset adapters | `FinanceBenchDataset`, `FinanceBenchDownloader`, `Fetcher` |
 
@@ -58,6 +59,10 @@ ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same 
 - **Chunk text vs indexed text**: `Chunk.text` is always the exact source span;
   `Chunk.context` (filing + page title block) is prepended only in `Chunk.indexed_text`,
   which is what embedding, BM25 and reranking read (HLD 009).
+- **Generation** (HLD 010, ADR 0005): sources are labelled `[S1]..[Sn]`; the model returns
+  `{answerable, answer}` via structured output; citations are parsed and validated against
+  the sources shown. Providers sit behind `LLMClient` (Claude via the Anthropic SDK, local
+  Ollama). Paid runs are estimated first and blocked above a budget.
 - **Relevance unit = evidence page** (`<doc_id>#p<page>`): a chunk is relevant if it covers an
   evidence page (HLD 003). Lenient by design; the chunk audit measures how much evidence
   actually fits in one chunk.

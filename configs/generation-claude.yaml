@@ -1,0 +1,52 @@
+# Phase 2 (HLD 010): Claude (claude-opus-5-5) answers from the current default retrieval (pages-context).
+# Retrieval settings are identical to pages-context.yaml.
+experiment_name: generation-claude
+dataset: financebench
+
+paths:
+  data_dir: data
+  runs_dir: runs
+
+parsing:
+  parser: pypdf
+
+chunking:
+  strategy: recursive
+  chunk_size: 400      # tokens
+  chunk_overlap: 0
+  tokenizer: cl100k_base
+  respect_pages: true            # <- vs filters.yaml
+  context:                       # <- vs pages.yaml
+    enabled: true
+    document_fields: [company, doc_type, year]
+    page_title: true
+    max_title_lines: 8
+
+embedding:                 # ADR 0003
+  model_id: BAAI/bge-small-en-v1.5
+  revision: 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
+  query_prefix: "Represent this sentence for searching relevant passages: "
+  batch_size: 64
+  device: auto
+
+retrieval:
+  top_k: 5
+  filters:
+    enabled: true
+    fields: [company, year]
+    year_window: 0
+    relax_order: [year, company]
+
+generation:                     # <- vs pages-context.yaml (ADR 0005, HLD 010)
+  provider: anthropic
+  model_id: claude-opus-5-5
+  effort: medium
+  max_tokens: 16000
+  max_sources: 5
+  refusal_fallbacks: true
+  pricing: {input_per_mtok: 4.0, output_per_mtok: 20.0}
+  expected_output_tokens: 1500
+
+evaluation:
+  ks: [1, 3, 5, 10]
+  parse_audit_min_coverage: 0.8

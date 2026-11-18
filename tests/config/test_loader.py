@@ -128,3 +128,11 @@ def test_structural_ablations_change_one_section(name: str, base: str, section: 
     same = {"experiment_name": "x", section: None}
     assert before.model_copy(update=same) == after.model_copy(update=same)
     assert getattr(before, section) != getattr(after, section)
+
+
+@pytest.mark.parametrize("name", ["generation-claude.yaml", "generation-ollama.yaml"])
+def test_generation_configs_reuse_the_default_retrieval(name: str) -> None:
+    default = load_config(REPO_ROOT / "configs" / "pages-context.yaml")
+    generation = load_config(REPO_ROOT / "configs" / name)
+    same = {"experiment_name": "x", "generation": None}
+    assert default.model_copy(update=same) == generation.model_copy(update=same)
