@@ -1,6 +1,7 @@
 from rag.config.loader import load_config
 from rag.config.settings import (
     AppConfig,
+    BM25Config,
     ChunkingConfig,
     ChunkingStrategy,
     DatasetName,
@@ -8,14 +9,17 @@ from rag.config.settings import (
     EvaluationConfig,
     FilterConfig,
     FilterField,
+    FusionConfig,
     ParserName,
     ParsingConfig,
     PathsConfig,
     RetrievalConfig,
+    RetrievalMode,
 )
 
 __all__ = [
     "AppConfig",
+    "BM25Config",
     "ChunkingConfig",
     "ChunkingStrategy",
     "DatasetName",
@@ -23,9 +27,11 @@ __all__ = [
     "EvaluationConfig",
     "FilterConfig",
     "FilterField",
+    "FusionConfig",
     "ParserName",
     "ParsingConfig",
     "PathsConfig",
     "RetrievalConfig",
+    "RetrievalMode",
     "load_config",
 ]

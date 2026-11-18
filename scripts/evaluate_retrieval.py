@@ -11,10 +11,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from rag.config import load_config
+from rag.config import RetrievalMode, load_config
 from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
 from rag.evaluation.retrieval_report import OVERALL, RetrievalEvaluator
 from rag.evaluation.retrieval_runner import (
@@ -25,7 +26,7 @@ from rag.evaluation.retrieval_runner import (
 from rag.indexing.factory import build_embedder, dense_index_dir
 from rag.indexing.vector_store import ExactVectorStore
 from rag.ingestion.factory import build_chunker
-from rag.retrieval.factory import build_retriever
+from rag.retrieval.factory import build_bm25_index, build_retriever
 from rag.storage import atomic_write_bytes
 
 SHOWN_METRICS = (
@@ -36,6 +37,7 @@ SHOWN_METRICS = (
     "mrr",
     "doc_hit@{k}",
     "filter_ok",
+    "pool_recall",
 )
 
 
@@ -50,10 +52,20 @@ def main(argv: list[str] | None = None) -> int:
     store = ExactVectorStore.load(index_dir, expected_model_id=embedder.model_id)
     items = FinanceBenchDataset(config.paths.raw_dir / "financebench").golden_items()
 
+    keyword_index = None
+    if config.retrieval.mode is not RetrievalMode.DENSE:
+        started = time.perf_counter()
+        keyword_index = build_bm25_index(config.retrieval.bm25, store.chunks)
+        print(
+            f"bm25 index: {len(keyword_index)} chunks, {keyword_index.vocabulary_size} terms, "
+            f"built in {time.perf_counter() - started:.1f}s"
+        )
     embedder.embed_query("warm-up")  # load the model outside the timed loop
     top_k = config.retrieval.top_k
     runner = RetrievalEvalRunner(
-        retriever=build_retriever(config.retrieval, embedder, store, COMPANY_ALIASES),
+        retriever=build_retriever(
+            config.retrieval, embedder, store, COMPANY_ALIASES, keyword_index
+        ),
         evaluator=RetrievalEvaluator(config.evaluation.ks),
         indexed=indexed_units(store.chunks),
         top_k=top_k,

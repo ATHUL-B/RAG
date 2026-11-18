@@ -99,8 +99,32 @@ class FilterConfig(StrictConfig):
     """Filters dropped one at a time, in this order, when a search finds nothing."""
 
 
+class RetrievalMode(StrEnum):
+    DENSE = "dense"
+    BM25 = "bm25"
+    HYBRID = "hybrid"
+
+
+class BM25Config(StrictConfig):
+    k1: float = Field(default=1.2, ge=0.0)
+    """Term-frequency saturation: higher = repeated terms keep adding score for longer."""
+    b: float = Field(default=0.75, ge=0.0, le=1.0)
+    """Length normalization: 0 = ignore chunk length, 1 = fully normalize."""
+
+
+class FusionConfig(StrictConfig):
+    rrf_k: NonNegativeInt = 60
+    """RRF constant: small k rewards top ranks, large k rewards agreement across lists."""
+    weights: dict[str, float] = Field(default_factory=lambda: {"dense": 1.0, "bm25": 1.0})
+
+
 class RetrievalConfig(StrictConfig):
     top_k: PositiveInt = 5
+    mode: RetrievalMode = RetrievalMode.DENSE
+    candidate_depth: PositiveInt = 50
+    """Candidates each retriever returns before fusion (hybrid mode)."""
+    bm25: BM25Config = BM25Config()
+    fusion: FusionConfig = FusionConfig()
     filters: FilterConfig = FilterConfig()
 
 

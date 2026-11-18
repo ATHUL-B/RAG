@@ -208,3 +208,29 @@ def test_doc_metadata_comes_from_the_first_chunk_of_each_document() -> None:
     a = _chunk("a", "D", 1).model_copy(update={"metadata": {"year": 2018}})
     b = _chunk("b", "D", 2).model_copy(update={"metadata": {"year": 1999}})
     assert doc_metadata_from_chunks([a, b]) == {"D": {"year": 2018}}
+
+
+class StagedRetriever(Retriever):
+    """Final list misses the evidence, but the bm25 stage found it at rank 2."""
+
+    def retrieve(self, query: Query, k: int) -> RetrievalResult:
+        noise = tuple(
+            ScoredChunk(chunk=c, score=0.5, rank=i, stage="rrf") for i, c in enumerate(NOISE, 1)
+        )
+        bm25 = (noise[0], ScoredChunk(chunk=_chunk("e", "D", 1), score=1.0, rank=2, stage="bm25"))
+        return RetrievalResult(
+            candidates=noise[:k], stage_candidates={"dense": noise, "bm25": bm25}
+        )
+
+
+def test_stage_ranks_and_pool_recall_show_where_evidence_was_lost() -> None:
+    (trace,) = _runner(StagedRetriever()).run([_item("x", 1, 2)]).traces
+    assert trace.stage_ranks == {"dense": None, "bm25": 2}
+    assert trace.metrics["pool_recall"] == 0.5  # page 1 in the pool, page 2 nowhere
+    assert trace.metrics["recall@5"] == 0.0  # ...but fusion dropped it from the final list
+
+
+def test_pool_recall_without_stages_is_recall_over_the_returned_list() -> None:
+    (trace,) = _runner(ScriptedRetriever(RESULTS)).run([_item("deep", 1)]).traces
+    assert trace.stage_ranks == {}
+    assert trace.metrics["pool_recall"] == 0.0

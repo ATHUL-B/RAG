@@ -20,6 +20,8 @@ class RetrievalResult(BaseModel):
     """Filters in force for the final search (after any relaxation)."""
     relaxed: tuple[str, ...] = ()
     """Filter keys dropped, in order, because the stricter search found too little."""
+    stage_candidates: dict[str, tuple[ScoredChunk, ...]] = Field(default_factory=dict)
+    """Intermediate ranked lists by stage name (e.g. "dense", "bm25" before fusion)."""
 
 
 class QueryRewriter(ABC):
