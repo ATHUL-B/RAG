@@ -1,5 +1,8 @@
 # Phase 1 walkthrough: the baseline retrieval pipeline
 
+> Continued in [`phase-3-improvements.md`](phase-3-improvements.md): how retrieval was
+> improved step by step (filters, BM25/hybrid, reranking, contextual chunks).
+
 This document explains **what Phase 1 built, why, and how the code is organised**, so you
 can read the code with its intention in mind. Read it top to bottom once; afterwards use
 §12 ("Reading order") as a map.

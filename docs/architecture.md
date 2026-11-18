@@ -4,8 +4,9 @@ Current state: **retrieval with metadata filters and page-aware contextual chunk
 `configs/pages-context.yaml`, recall@5 0.427), plus optional BM25/hybrid and cross-encoder
 reranking (Phase 3.2-3.5) (pypdf → recursive chunks → bge-small
 embeddings → exact NumPy index → dense top-K), evaluated on FinanceBench with traces and
-failure-ladder status. No generation yet (see `backlog.md`). Guided tour:
-[`walkthroughs/phase-1-baseline.md`](walkthroughs/phase-1-baseline.md).
+failure-ladder status. No generation yet (see `backlog.md`). Guided tours:
+[`walkthroughs/phase-1-baseline.md`](walkthroughs/phase-1-baseline.md), then
+[`walkthroughs/phase-3-improvements.md`](walkthroughs/phase-3-improvements.md).
 
 ## Pipelines
 
