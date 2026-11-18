@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets
+.env
+
+# Data, indexes and run outputs are never committed (see CLAUDE.md §4)
+data/*
+!data/README.md
+runs/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
