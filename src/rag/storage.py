@@ -62,7 +62,8 @@ class JsonArtifactStore[M: BaseModel]:
         except ValidationError as exc:
             raise StorageError(f"corrupt artifact {path}: {exc}") from exc
 
-    def keys(self) -> list[str]:
+    def ids(self) -> list[str]:
+        """Keys of all stored artifacts, sorted."""
         if not self._root.exists():
             return []
         return sorted(p.stem for p in self._root.glob("*.json"))

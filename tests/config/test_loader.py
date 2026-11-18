@@ -55,3 +55,8 @@ def test_overlap_must_be_smaller_than_chunk(tmp_path: Path) -> None:
 def test_evaluation_ks_must_be_positive(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="ks"):
         load_config(_write(tmp_path, "experiment_name: x\nevaluation:\n  ks: [0, 5]\n"))
+
+
+def test_chunks_dir_is_namespaced_by_chunker_fingerprint() -> None:
+    config = AppConfig(experiment_name="x")
+    assert config.paths.chunks_dir("abc") == Path("data/processed/chunks/abc")

@@ -15,6 +15,8 @@ make check                   # format check, lint, type check, tests (what CI ru
 make download-financebench   # metadata + the 84 PDFs the questions reference
 uv run python scripts/parse_documents.py   # PDFs -> data/processed/parsed/<doc_id>.json
 uv run python scripts/audit_parsing.py     # how much golden evidence survived parsing
+uv run python scripts/chunk_documents.py   # -> data/processed/chunks/<fingerprint>/<doc_id>.json
+uv run python scripts/audit_chunking.py    # how much evidence fits in a single chunk
 ```
 
 Other commands: `make format`, `make test`, `make test-slow` (network/model tests),

@@ -103,6 +103,21 @@ class Chunk(DomainModel):
         return self
 
 
+class ChunkSet(DomainModel):
+    """All chunks of one document produced by one chunker configuration (an artifact)."""
+
+    doc_id: str = Field(min_length=1)
+    chunker_fingerprint: str = Field(min_length=1)
+    chunks: tuple[Chunk, ...]
+
+    @model_validator(mode="after")
+    def _chunks_belong_to_document(self) -> Self:
+        strangers = {c.doc_id for c in self.chunks} - {self.doc_id}
+        if strangers:
+            raise ValueError(f"chunks from other documents in {self.doc_id!r}: {strangers}")
+        return self
+
+
 class SourceSpan(DomainModel):
     """Where a piece of evidence lives in the *source*, independent of chunking.
 
