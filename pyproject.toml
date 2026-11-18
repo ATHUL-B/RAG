@@ -8,6 +8,7 @@ dependencies = [
     "pydantic>=2.9",
     "pypdf[crypto]>=7.1.0",
     "pyyaml>=6.0",
+    "tiktoken>=0.8",
 ]
 
 [dependency-groups]

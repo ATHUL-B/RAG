@@ -16,9 +16,9 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | # | Item | Guide | Status |
 | --- | --- | --- | --- |
 | 1.1 | Retrieval metrics (recall@K, precision@K, hit rate, MRR, nDCG@K) + per-segment aggregation, tested on the guide's worked examples (HLD 001) | 13 | done |
-| 1.2 | Evidence mapping: golden `SourceSpan` (doc + page) → chunk IDs at eval time | 13 | todo |
+| 1.2 | Evidence mapping: golden `SourceSpan` (doc + page) → chunk relevance units, + chunk audit (HLD 003) | 13 | done |
 | 1.3 | Baseline PDF parser (page-preserving) + parsed-document artifacts + parser audit script (HLD 002) | 3 | done |
-| 1.4 | Recursive chunker (400 tokens, 0 overlap) + chunk artifacts | 4 | todo |
+| 1.4 | Recursive chunker (400 tokens, 0 overlap) + chunk artifacts (HLD 003) | 4 | done |
 | 1.5 | Embedder + vector store + dense retriever (ADR: embedding model, vector DB) | 5, 6 | todo |
 | 1.6 | `ingest` and `eval` CLIs; per-question traces; failure-ladder report (rungs 1-2) | 13 | todo |
 | 1.7 | First `experiments/LOG.md` entry: baseline recall@5 per segment | 13 | todo |
@@ -56,6 +56,8 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 - Parse audit: add a whitespace-insensitive coverage variant (annotator evidence has
   spaces stripped, e.g. `Cashandcashequivalents`, which deflates current coverage).
+- 1.5: verify every chunk fits the chosen embedding model's max sequence length (chunks
+  are sized with tiktoken cl100k, which may differ from the embedder's tokenizer).
 - Cleaning (3.1): normalize `\xa0`, re-join mid-word line breaks; try `fontTools`
   (pypdf warns it is missing for some CFF fonts) and compare on the parse audit.
 

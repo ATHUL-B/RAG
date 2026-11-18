@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from rag.domain import PAGE_SEPARATOR, Chunk, Document, GoldenItem, Page, SourceSpan
+from rag.domain import PAGE_SEPARATOR, Chunk, ChunkSet, Document, GoldenItem, Page, SourceSpan
 
 
 def _doc(*texts: str, start: int = 0) -> Document:
@@ -69,3 +69,11 @@ def test_golden_item_without_evidence_is_unanswerable() -> None:
     )
     assert not unanswerable.answerable
     assert answerable.answerable
+
+
+def test_chunk_set_rejects_chunks_from_other_documents() -> None:
+    chunk = Chunk(
+        chunk_id="c", doc_id="OTHER", text="t", char_start=0, char_end=1, page_start=0, page_end=0
+    )
+    with pytest.raises(ValidationError, match="other documents"):
+        ChunkSet(doc_id="d1", chunker_fingerprint="fp", chunks=(chunk,))

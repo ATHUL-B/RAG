@@ -28,11 +28,11 @@ def test_round_trips_a_model(store: JsonArtifactStore[Document]) -> None:
     assert store.exists("A_2020")
 
 
-def test_keys_lists_saved_items_sorted(store: JsonArtifactStore[Document]) -> None:
-    assert store.keys() == []
+def test_ids_lists_saved_items_sorted(store: JsonArtifactStore[Document]) -> None:
+    assert store.ids() == []
     store.save("B", _doc("B"))
     store.save("A", _doc("A"))
-    assert store.keys() == ["A", "B"]
+    assert store.ids() == ["A", "B"]
 
 
 def test_missing_and_corrupt_artifacts_raise_storage_error(

@@ -14,6 +14,7 @@ chunking:
   strategy: recursive
   chunk_size: 400      # tokens
   chunk_overlap: 0
+  tokenizer: cl100k_base
 
 retrieval:
   top_k: 5

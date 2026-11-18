@@ -1,7 +1,8 @@
 # Architecture
 
-Current state: **parsing works** (pypdf baseline → `data/processed/parsed/`, plus a
-parse audit). No chunker, index or LLM yet (see `backlog.md`).
+Current state: **parsing and chunking work** (pypdf → `data/processed/parsed/`, recursive
+chunker → `data/processed/chunks/<fingerprint>/`, plus parse and chunk audits). No index or
+LLM yet (see `backlog.md`).
 
 ## Pipelines
 
@@ -20,11 +21,11 @@ ONLINE   Query ─► QueryRewriter ─► Retriever(s) ─► Fuser ─► Rera
 | Package | Responsibility | Key types |
 | --- | --- | --- |
 | `rag.domain` | Immutable data shared by all stages; deterministic IDs | `Document`, `Page`, `Chunk`, `SourceSpan`, `ScoredChunk`, `Query`, `Answer`, `GoldenItem` |
-| `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `build_parser` |
+| `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `RecursiveChunker`, `TokenCounter`, `ChunkStage`, `build_parser`, `build_chunker` |
 | `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex` |
 | `rag.retrieval` | Rewrite, retrieve, fuse, rerank | `QueryRewriter`, `Retriever`, `Fuser`, `Reranker` |
 | `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion` |
-| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `ParseAuditor`, `Judge`, `Verdict` |
+| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `evidence` (qrels, relevance units), `ParseAuditor`, `ChunkAuditor`, `Judge`, `Verdict` |
 | `rag.observability` | Timing and structured logs | `StageTimer`, `JsonFormatter` |
 | `rag.config` | Typed YAML config | `AppConfig`, `load_config` |
 | `rag.storage` | Atomic writes, safe keys, JSON artifacts | `JsonArtifactStore`, `atomic_write_bytes` |
@@ -39,5 +40,8 @@ ONLINE   Query ─► QueryRewriter ─► Retriever(s) ─► Fuser ─► Rera
 - **Evidence labelled at source level** (`SourceSpan`: doc + zero-based page), mapped
   to chunks at eval time, so golden labels survive re-chunking.
 - **Deterministic chunk IDs** = hash(doc_id, char span, chunker config fingerprint).
+- **Relevance unit = evidence page** (`<doc_id>#p<page>`): a chunk is relevant if it covers an
+  evidence page (HLD 003). Lenient by design; the chunk audit measures how much evidence
+  actually fits in one chunk.
 - **Errors per stage** (`IngestionError`, `RetrievalError`, ...) under `RagError`.
 - Dataset choice: see `adr/0001-dataset.md`. Tooling: `adr/0002-tooling.md`.

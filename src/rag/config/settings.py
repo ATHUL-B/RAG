@@ -49,6 +49,10 @@ class PathsConfig(StrictConfig):
         """Parsed ``Document`` artifacts, one JSON per document."""
         return self.processed_dir / "parsed"
 
+    def chunks_dir(self, chunker_fingerprint: str) -> Path:
+        """Chunk artifacts for one chunker configuration (configs coexist for ablations)."""
+        return self.processed_dir / "chunks" / chunker_fingerprint
+
 
 class ParsingConfig(StrictConfig):
     parser: ParserName = ParserName.PYPDF
@@ -58,6 +62,8 @@ class ChunkingConfig(StrictConfig):
     strategy: ChunkingStrategy = ChunkingStrategy.RECURSIVE
     chunk_size: PositiveInt = 400
     chunk_overlap: NonNegativeInt = 0
+    tokenizer: str = Field(default="cl100k_base", min_length=1)
+    """tiktoken encoding used to measure chunk_size and chunk_overlap."""
 
     @model_validator(mode="after")
     def _overlap_smaller_than_chunk(self) -> Self:
