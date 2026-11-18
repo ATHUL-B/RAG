@@ -13,6 +13,28 @@ how retrieval was improved one measured change at a time.
 
 Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 for you).
 
+### Quick start: from a fresh clone to an evaluation
+
+Data, indexes and run outputs are never committed (CLAUDE.md §4), so a fresh
+clone rebuilds them locally. Rebuilding is free and deterministic: the same
+config gives the same chunk IDs and the same index.
+
+```bash
+make install    # dependencies
+make data       # download 84 PDFs (~160 MB), parse, chunk, embed with bge-small on CPU
+cp .env.example .env    # then put your ANTHROPIC_API_KEY in .env
+uv run python scripts/evaluate_retrieval.py --config configs/pages-context.yaml   # free
+uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --dry-run  # cost estimate
+uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --limit 10 # ~$0.40
+```
+
+`make data` builds the current default config (`configs/pages-context.yaml`,
+which `generation-claude.yaml` shares). To build the data for another
+experiment, run `make data CONFIG=configs/<name>.yaml`. Steps that are already
+done are skipped, so it is safe to re-run.
+
+### Step by step (what `make data` runs, plus the audits)
+
 ```bash
 make install                 # uv sync: creates .venv with all dependencies
 make check                   # format check, lint, type check, tests (what CI runs)
