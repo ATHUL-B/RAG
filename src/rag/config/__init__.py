@@ -5,6 +5,8 @@ from rag.config.settings import (
     ChunkingStrategy,
     DatasetName,
     EvaluationConfig,
+    ParserName,
+    ParsingConfig,
     PathsConfig,
     RetrievalConfig,
 )
@@ -15,6 +17,8 @@ __all__ = [
     "ChunkingStrategy",
     "DatasetName",
     "EvaluationConfig",
+    "ParserName",
+    "ParsingConfig",
     "PathsConfig",
     "RetrievalConfig",
     "load_config",

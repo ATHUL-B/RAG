@@ -27,6 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, ValidationErr
 from rag.datasets.http import Fetcher
 from rag.domain import GoldenItem, Metadata, SourceSpan
 from rag.errors import DatasetError
+from rag.storage import atomic_write_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +236,7 @@ class FinanceBenchDownloader:
             logger.error("download failed", extra={"item": name, "error": str(exc)})
             report.failed[name] = str(exc)
             return
-        _atomic_write(target, body)
+        atomic_write_bytes(target, body)
         report.downloaded.append(name)
         logger.info("downloaded", extra={"item": name, "bytes": len(body)})
 
@@ -246,11 +247,3 @@ def _unique(items: Iterable[str]) -> Iterator[str]:
         if item not in seen:
             seen.add(item)
             yield item
-
-
-def _atomic_write(target: Path, body: bytes) -> None:
-    """Write to a temp file then rename, so a crash never leaves a half-written file."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix(target.suffix + ".part")
-    tmp.write_bytes(body)
-    tmp.replace(target)

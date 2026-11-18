@@ -17,7 +17,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | --- | --- | --- | --- |
 | 1.1 | Retrieval metrics (recall@K, precision@K, hit rate, MRR, nDCG@K) + per-segment aggregation, tested on the guide's worked examples (HLD 001) | 13 | done |
 | 1.2 | Evidence mapping: golden `SourceSpan` (doc + page) → chunk IDs at eval time | 13 | todo |
-| 1.3 | Baseline PDF parser (page-preserving) + parsed-document artifacts + parser audit script | 3 | todo |
+| 1.3 | Baseline PDF parser (page-preserving) + parsed-document artifacts + parser audit script (HLD 002) | 3 | done |
 | 1.4 | Recursive chunker (400 tokens, 0 overlap) + chunk artifacts | 4 | todo |
 | 1.5 | Embedder + vector store + dense retriever (ADR: embedding model, vector DB) | 5, 6 | todo |
 | 1.6 | `ingest` and `eval` CLIs; per-question traces; failure-ladder report (rungs 1-2) | 13 | todo |
@@ -53,6 +53,11 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 4.4 | Cross-check retrieval code on BEIR (SciFact, FiQA) against published nDCG@10 | 13 | todo |
 
 ## Discovered / unscheduled
+
+- Parse audit: add a whitespace-insensitive coverage variant (annotator evidence has
+  spaces stripped, e.g. `Cashandcashequivalents`, which deflates current coverage).
+- Cleaning (3.1): normalize `\xa0`, re-join mid-word line breaks; try `fontTools`
+  (pypdf warns it is missing for some CFF fonts) and compare on the parse audit.
 
 - Put `uv` on PATH for the user's shell (installed at `~/Library/Python/3.9/bin`).
 - Consider pre-commit hooks running `make lint`.

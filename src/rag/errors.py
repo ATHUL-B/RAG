@@ -18,6 +18,10 @@ class DatasetError(RagError):
     """A dataset could not be downloaded or its records are malformed."""
 
 
+class StorageError(RagError):
+    """A pipeline artifact could not be read or written."""
+
+
 class IngestionError(RagError):
     """Parsing, cleaning, enrichment or chunking failed."""
 
