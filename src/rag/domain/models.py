@@ -22,6 +22,25 @@ from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, model_validat
 MetadataValue = str | int | float | bool
 Metadata = dict[str, MetadataValue]
 
+FilterValue = MetadataValue | tuple[MetadataValue, ...]
+"""A scalar means "equals"; a tuple means "any of" (e.g. ``year: (2022, 2023)``)."""
+Filters = dict[str, FilterValue]
+
+
+def matches(metadata: Metadata, filters: Filters) -> bool:
+    """True if ``metadata`` satisfies every filter (the one definition used everywhere)."""
+    for key, wanted in filters.items():
+        if key not in metadata:
+            return False
+        value = metadata[key]
+        if isinstance(wanted, tuple):
+            if value not in wanted:
+                return False
+        elif value != wanted:
+            return False
+    return True
+
+
 PAGE_SEPARATOR = "\n\n"
 """Inserted between pages when building :attr:`Document.text`."""
 
@@ -141,7 +160,7 @@ class ScoredChunk(DomainModel):
 
 class Query(DomainModel):
     text: str = Field(min_length=1)
-    filters: Metadata = Field(default_factory=dict)
+    filters: Filters = Field(default_factory=dict)
 
 
 class Answer(DomainModel):

@@ -631,7 +631,7 @@ Design documents behind each step: `docs/hld/001`…`005`; decisions: `docs/adr/
 | No cleaning; tables flattened | Baseline to measure against | 3.1 |
 | Chunks ignore headings/structure, may span pages | Same | 3.2 |
 | Chunk sizes measured in tiktoken, 91 chunks truncated by bge | Small (0.35%) | backlog note |
-| No metadata filters taken from the question | Shows the version trap clearly | **3.3 (next)** |
+| No metadata filters taken from the question | Shows the version trap clearly | **3.3 (done: HLD 006, recall@5 0.273 → 0.377)** |
 | Dense only; numbers and exact terms blur | Same | 3.4 (BM25 + RRF) |
 | No reranker | Same | 3.5 |
 | Page-level relevance is lenient | Matches FinanceBench labels; chunk audit quantifies it | later, span-level |

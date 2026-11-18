@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from rag.domain import Query, ScoredChunk
+from rag.domain import Query
 from rag.indexing.base import Embedder, VectorStore
-from rag.retrieval.base import Retriever
+from rag.retrieval.base import RetrievalResult, Retriever
 
 
 class DenseRetriever(Retriever):
@@ -12,6 +12,7 @@ class DenseRetriever(Retriever):
         self._embedder = embedder
         self._store = store
 
-    def retrieve(self, query: Query, k: int) -> list[ScoredChunk]:
+    def retrieve(self, query: Query, k: int) -> RetrievalResult:
         vector = self._embedder.embed_query(query.text)
-        return self._store.search(vector, k, query.filters or None)
+        hits = self._store.search(vector, k, query.filters or None)
+        return RetrievalResult(candidates=tuple(hits), applied_filters=dict(query.filters))

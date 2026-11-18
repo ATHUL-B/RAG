@@ -37,7 +37,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | --- | --- | --- | --- |
 | 3.1 | Cleaning (headers/footers, hyphenation) and table-aware parsing | 3 | todo |
 | 3.2 | Structural chunking with heading paths; size sweep 200/400/800 ± overlap | 4 | todo |
-| 3.3 | Metadata filters (company, year, doc type); version-trap questions | 8 | todo |
+| 3.3 | Metadata filters (company, year) from the question, with relaxation (HLD 006): recall@5 0.273 → 0.377 | 8 | done |
 | 3.4 | BM25 index + Reciprocal Rank Fusion | 9 | todo |
 | 3.5 | Cross-encoder reranker; rerank depth vs. latency | 10 | todo |
 | 3.6 | Query rewriting / decomposition for multi-part questions | 7 | todo |
@@ -59,8 +59,12 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 - 91 of 26,264 chunks exceed bge's 512-token limit (sized with tiktoken; bge splits numbers
   more finely) and are truncated. Options: size chunks with the embedder's tokenizer, or
   lower chunk_size. Measure on the eval.
-- **Priority for Phase 3:** the baseline shows 40.7% of top-5 slots are the version trap
-  (same company, other filing). Do 3.3 (metadata filters) first.
+- **Priority after 3.3:** with filters, 66.7% of top-5 slots are the right filing but the
+  wrong page: within-document ranking is now the bottleneck → 3.4 (BM25 + RRF), 3.5
+  (reranker), 3.2 (structural chunking).
+- Filters: doc-type filter (10-K vs 10-Q vs earnings; 18.8% of slots are same-company
+  other filings, often same year), and forward-looking questions ("expected in FY2023"
+  lives in the FY2022 filing): an LLM query planner (3.6) could map intent to year.
 - Cleaning (3.1): normalize `\xa0`, re-join mid-word line breaks; try `fontTools`
   (pypdf warns it is missing for some CFF fonts) and compare on the parse audit.
 

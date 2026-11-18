@@ -8,7 +8,7 @@ from collections.abc import Sequence
 import numpy as np
 import numpy.typing as npt
 
-from rag.domain import Chunk, Metadata, ScoredChunk
+from rag.domain import Chunk, Filters, ScoredChunk
 
 Vector = npt.NDArray[np.float32]
 """One embedding, shape ``(dimension,)``."""
@@ -51,7 +51,7 @@ class VectorStore(ABC):
     def upsert(self, chunks: Sequence[Chunk], vectors: Matrix) -> None: ...
 
     @abstractmethod
-    def search(self, vector: Vector, k: int, filters: Metadata | None = None) -> list[ScoredChunk]:
+    def search(self, vector: Vector, k: int, filters: Filters | None = None) -> list[ScoredChunk]:
         """Top-k by similarity, applying ``filters`` *before* ranking (Part 8)."""
 
 
@@ -62,4 +62,4 @@ class KeywordIndex(ABC):
     def add(self, chunks: Sequence[Chunk]) -> None: ...
 
     @abstractmethod
-    def search(self, text: str, k: int, filters: Metadata | None = None) -> list[ScoredChunk]: ...
+    def search(self, text: str, k: int, filters: Filters | None = None) -> list[ScoredChunk]: ...

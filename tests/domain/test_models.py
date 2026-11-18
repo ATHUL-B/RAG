@@ -1,7 +1,18 @@
 import pytest
 from pydantic import ValidationError
 
-from rag.domain import PAGE_SEPARATOR, Chunk, ChunkSet, Document, GoldenItem, Page, SourceSpan
+from rag.domain import (
+    PAGE_SEPARATOR,
+    Chunk,
+    ChunkSet,
+    Document,
+    GoldenItem,
+    Metadata,
+    Page,
+    Query,
+    SourceSpan,
+    matches,
+)
 
 
 def _doc(*texts: str, start: int = 0) -> Document:
@@ -77,3 +88,26 @@ def test_chunk_set_rejects_chunks_from_other_documents() -> None:
     )
     with pytest.raises(ValidationError, match="other documents"):
         ChunkSet(doc_id="d1", chunker_fingerprint="fp", chunks=(chunk,))
+
+
+META: Metadata = {"company": "3M", "year": 2018}
+
+
+class TestMatches:
+    def test_scalar_means_equals(self) -> None:
+        assert matches(META, {"company": "3M"})
+        assert not matches(META, {"company": "AMD"})
+
+    def test_tuple_means_any_of(self) -> None:
+        assert matches(META, {"year": (2017, 2018)})
+        assert not matches(META, {"year": (2019, 2020)})
+
+    def test_all_filters_must_hold_and_missing_keys_fail(self) -> None:
+        assert matches(META, {})
+        assert not matches(META, {"company": "3M", "year": 2019})
+        assert not matches(META, {"sector": "Industrials"})
+
+
+def test_query_filters_round_trip_through_json() -> None:
+    query = Query(text="q", filters={"company": "3M", "year": (2017, 2018)})
+    assert Query.model_validate_json(query.model_dump_json()) == query

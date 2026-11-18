@@ -5,7 +5,21 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
-from rag.domain import Query, ScoredChunk
+from pydantic import BaseModel, ConfigDict, Field
+
+from rag.domain import Filters, Query, ScoredChunk
+
+
+class RetrievalResult(BaseModel):
+    """Candidates plus what the retriever actually did, so traces can explain them."""
+
+    model_config = ConfigDict(frozen=True)
+
+    candidates: tuple[ScoredChunk, ...]
+    applied_filters: Filters = Field(default_factory=dict)
+    """Filters in force for the final search (after any relaxation)."""
+    relaxed: tuple[str, ...] = ()
+    """Filter keys dropped, in order, because the stricter search found too little."""
 
 
 class QueryRewriter(ABC):
@@ -15,11 +29,18 @@ class QueryRewriter(ABC):
     def rewrite(self, query: Query) -> list[Query]: ...
 
 
+class FilterExtractor(ABC):
+    """Reads metadata constraints (company, year, ...) out of a question (Parts 7-8)."""
+
+    @abstractmethod
+    def extract(self, text: str) -> Filters: ...
+
+
 class Retriever(ABC):
     """First-stage candidate generation: cheap, wide, recall-oriented."""
 
     @abstractmethod
-    def retrieve(self, query: Query, k: int) -> list[ScoredChunk]: ...
+    def retrieve(self, query: Query, k: int) -> RetrievalResult: ...
 
 
 class Fuser(ABC):
