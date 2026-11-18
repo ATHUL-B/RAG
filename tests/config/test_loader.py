@@ -50,3 +50,8 @@ def test_overlap_must_be_smaller_than_chunk(tmp_path: Path) -> None:
     content = "experiment_name: x\nchunking:\n  chunk_size: 100\n  chunk_overlap: 100\n"
     with pytest.raises(ConfigError, match="chunk_overlap"):
         load_config(_write(tmp_path, content))
+
+
+def test_evaluation_ks_must_be_positive(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="ks"):
+        load_config(_write(tmp_path, "experiment_name: x\nevaluation:\n  ks: [0, 5]\n"))

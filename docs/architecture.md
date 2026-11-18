@@ -1,7 +1,7 @@
 # Architecture
 
-Current state: **skeleton**. Interfaces and domain models exist; no concrete
-parser, chunker, index or LLM yet (see `backlog.md`).
+Current state: **parsing works** (pypdf baseline → `data/processed/parsed/`, plus a
+parse audit). No chunker, index or LLM yet (see `backlog.md`).
 
 ## Pipelines
 
@@ -20,13 +20,14 @@ ONLINE   Query ─► QueryRewriter ─► Retriever(s) ─► Fuser ─► Rera
 | Package | Responsibility | Key types |
 | --- | --- | --- |
 | `rag.domain` | Immutable data shared by all stages; deterministic IDs | `Document`, `Page`, `Chunk`, `SourceSpan`, `ScoredChunk`, `Query`, `Answer`, `GoldenItem` |
-| `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker` |
+| `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `build_parser` |
 | `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex` |
 | `rag.retrieval` | Rewrite, retrieve, fuse, rerank | `QueryRewriter`, `Retriever`, `Fuser`, `Reranker` |
 | `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion` |
-| `rag.evaluation` | Golden sets, metrics, judges | `Judge`, `Verdict` |
+| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `ParseAuditor`, `Judge`, `Verdict` |
 | `rag.observability` | Timing and structured logs | `StageTimer`, `JsonFormatter` |
 | `rag.config` | Typed YAML config | `AppConfig`, `load_config` |
+| `rag.storage` | Atomic writes, safe keys, JSON artifacts | `JsonArtifactStore`, `atomic_write_bytes` |
 | `rag.datasets` | Public dataset adapters | `FinanceBenchDataset`, `FinanceBenchDownloader`, `Fetcher` |
 
 ## Key decisions
