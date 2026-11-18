@@ -23,6 +23,7 @@ uv run python scripts/build_index.py       # embed chunks (bge-small, local) -> 
 uv run python scripts/evaluate_retrieval.py  # recall@K, nDCG, MRR per segment + traces in runs/
 uv run python scripts/evaluate_retrieval.py --config configs/filters.yaml  # ablation: metadata filters
 uv run python scripts/evaluate_retrieval.py --config configs/hybrid.yaml   # ablation: dense + BM25 (RRF)
+uv run python scripts/evaluate_retrieval.py --config configs/rerank-bge.yaml  # ablation: + cross-encoder
 uv run python scripts/compare_runs.py runs/<a> runs/<b>   # per-question diff + 95% bootstrap CI
 ```
 

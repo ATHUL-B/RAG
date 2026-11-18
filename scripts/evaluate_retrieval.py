@@ -87,7 +87,10 @@ def main(argv: list[str] | None = None) -> int:
     filtered = sum(bool(t.applied_filters) for t in result.traces)
     relaxed = sum(bool(t.relaxed) for t in result.traces)
     print(f"filters applied: {filtered}/{len(result.traces)} questions, relaxed: {relaxed}")
-    print(f"retrieval latency ms: { {k: round(v, 1) for k, v in result.latency_ms.items()} }\n")
+    print(f"retrieval latency ms: { {k: round(v, 1) for k, v in result.latency_ms.items()} }")
+    for stage, summary_ms in result.stage_latency_ms.items():
+        print(f"  {stage:<12} ms: { {k: round(v, 1) for k, v in summary_ms.items()} }")
+    print()
     print(f"{'segment':<58} {'n':>4}  " + "  ".join(f"{n:>12}" for n in names))
     for segment, summary_row in result.report.segments.items():
         marker = "*" if segment == OVERALL else " "

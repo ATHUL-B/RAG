@@ -118,6 +118,19 @@ class FusionConfig(StrictConfig):
     weights: dict[str, float] = Field(default_factory=lambda: {"dense": 1.0, "bm25": 1.0})
 
 
+class RerankConfig(StrictConfig):
+    """Cross-encoder reranking (ADR 0004, HLD 008)."""
+
+    enabled: bool = False
+    model_id: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2", min_length=1)
+    revision: str | None = "233902d25c440f23af6f7d6e94d2946bac0bee0a"
+    depth: PositiveInt = 50
+    """First-stage candidates given to the reranker: bounds recall, drives latency."""
+    batch_size: PositiveInt = 16
+    max_length: PositiveInt = 512
+    device: str = Field(default="auto", pattern=r"^(auto|cpu|mps|cuda(:\d+)?)$")
+
+
 class RetrievalConfig(StrictConfig):
     top_k: PositiveInt = 5
     mode: RetrievalMode = RetrievalMode.DENSE
@@ -125,6 +138,7 @@ class RetrievalConfig(StrictConfig):
     """Candidates each retriever returns before fusion (hybrid mode)."""
     bm25: BM25Config = BM25Config()
     fusion: FusionConfig = FusionConfig()
+    rerank: RerankConfig = RerankConfig()
     filters: FilterConfig = FilterConfig()
 
 

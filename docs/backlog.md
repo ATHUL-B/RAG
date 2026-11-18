@@ -39,7 +39,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 3.2 | Structural chunking with heading paths; size sweep 200/400/800 ± overlap | 4 | todo |
 | 3.3 | Metadata filters (company, year) from the question, with relaxation (HLD 006): recall@5 0.273 → 0.377 | 8 | done |
 | 3.4 | BM25 index + Reciprocal Rank Fusion (HLD 007): top-5 tie with dense, candidate pool better (hit@50 0.820 → 0.887) | 9 | done |
-| 3.5 | Cross-encoder reranker over the hybrid pool (pool_recall 0.856); rerank depth vs. latency | 10 | todo |
+| 3.5 | Cross-encoder rerankers (MiniLM, bge-base) over hybrid/dense pools (HLD 008, ADR 0004): no top-5 gain, +220 ms-1.5 s; kept, disabled | 10 | done |
 | 3.6 | Query rewriting / decomposition for multi-part questions | 7 | todo |
 | 3.7 | Contextual chunks, parent-child retrieval | 4, 12 | todo |
 
@@ -63,6 +63,13 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
   dev/test, tune on dev only. Tuning on all 150 questions overfits the evaluation.
 - Hybrid: query-dependent weighting / routing (ID- and number-heavy questions → BM25), and
   stripping instruction boilerplate from questions before BM25 (Part 7).
+- **Priority after 3.5:** chunk context. Table chunks start mid-statement with no
+  statement name or year columns, so neither embeddings nor cross-encoders can judge them.
+  Next: 3.2 structural chunking with heading/statement path (+ 3.1 table-aware parsing),
+  then 3.7 contextual chunks; then re-run the reranker ablations.
+- Eval labels are page-level and incomplete (the same figure appears on several pages, e.g.
+  3M capex in the segment table p38 and the cash-flow statement p59). Consider an
+  answer-aware relevance check alongside page labels (Phase 2, with generation metrics).
 - **Priority after 3.3:** with filters, 66.7% of top-5 slots are the right filing but the
   wrong page: within-document ranking is now the bottleneck → 3.4 (BM25 + RRF), 3.5
   (reranker), 3.2 (structural chunking).

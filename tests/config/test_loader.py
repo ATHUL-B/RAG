@@ -63,7 +63,16 @@ def test_chunks_dir_is_namespaced_by_chunker_fingerprint() -> None:
 
 
 @pytest.mark.parametrize(
-    "name", ["filters.yaml", "filters-window1.yaml", "bm25.yaml", "hybrid.yaml"]
+    "name",
+    [
+        "filters.yaml",
+        "filters-window1.yaml",
+        "bm25.yaml",
+        "hybrid.yaml",
+        "rerank-minilm.yaml",
+        "rerank-bge.yaml",
+        "dense-rerank-bge.yaml",
+    ],
 )
 def test_committed_ablation_configs_differ_from_baseline_only_in_retrieval(name: str) -> None:
     baseline = load_config(REPO_ROOT / "configs" / "baseline.yaml")
@@ -87,3 +96,18 @@ def test_unknown_filter_field_is_rejected(tmp_path: Path) -> None:
     content = "experiment_name: x\nretrieval:\n  filters:\n    fields: [sector]\n"
     with pytest.raises(ConfigError, match="fields"):
         load_config(_write(tmp_path, content))
+
+
+@pytest.mark.parametrize(
+    ("name", "base"),
+    [
+        ("rerank-minilm.yaml", "hybrid.yaml"),
+        ("rerank-bge.yaml", "hybrid.yaml"),
+        ("dense-rerank-bge.yaml", "filters.yaml"),
+    ],
+)
+def test_rerank_ablations_change_only_rerank(name: str, base: str) -> None:
+    before = load_config(REPO_ROOT / "configs" / base).retrieval
+    after = load_config(REPO_ROOT / "configs" / name).retrieval
+    assert after.rerank.enabled
+    assert after.model_copy(update={"rerank": before.rerank}) == before

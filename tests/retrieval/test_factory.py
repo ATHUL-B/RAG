@@ -1,14 +1,23 @@
 import pytest
 
-from rag.config import BM25Config, FilterConfig, FilterField, RetrievalConfig, RetrievalMode
+from rag.config import (
+    BM25Config,
+    FilterConfig,
+    FilterField,
+    RerankConfig,
+    RetrievalConfig,
+    RetrievalMode,
+)
 from rag.domain import Chunk
 from rag.errors import ConfigError
 from rag.indexing.vector_store import ExactVectorStore
 from rag.retrieval.dense import DenseRetriever
-from rag.retrieval.factory import build_bm25_index, build_retriever
+from rag.retrieval.factory import build_bm25_index, build_reranker, build_retriever
 from rag.retrieval.filtered import FilteredRetriever
 from rag.retrieval.hybrid import HybridRetriever
 from rag.retrieval.keyword import KeywordRetriever
+from rag.retrieval.rerankers import CrossEncoderReranker
+from rag.retrieval.reranking import RerankingRetriever
 from support.embedders import HashingEmbedder
 
 EMBEDDER = HashingEmbedder()
@@ -50,3 +59,21 @@ def test_keyword_modes(mode: RetrievalMode, expected: type) -> None:
 def test_keyword_modes_require_a_keyword_index() -> None:
     with pytest.raises(ConfigError, match="keyword index"):
         build_retriever(RetrievalConfig(mode=RetrievalMode.HYBRID), EMBEDDER, STORE, {})
+
+
+def test_rerank_wraps_the_first_stage_and_filters_wrap_everything() -> None:
+    config = RetrievalConfig(rerank=RerankConfig(enabled=True), filters=FilterConfig(enabled=True))
+    reranker = build_reranker(RerankConfig())  # lazy: no model is loaded here
+    retriever = build_retriever(config, EMBEDDER, STORE, {}, reranker=reranker)
+    assert isinstance(retriever, FilteredRetriever)
+    assert isinstance(
+        build_retriever(
+            config.model_copy(update={"filters": FilterConfig()}),
+            EMBEDDER,
+            STORE,
+            {},
+            reranker=reranker,
+        ),
+        RerankingRetriever,
+    )
+    assert isinstance(reranker, CrossEncoderReranker)

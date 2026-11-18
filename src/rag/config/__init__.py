@@ -13,6 +13,7 @@ from rag.config.settings import (
     ParserName,
     ParsingConfig,
     PathsConfig,
+    RerankConfig,
     RetrievalConfig,
     RetrievalMode,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "ParserName",
     "ParsingConfig",
     "PathsConfig",
+    "RerankConfig",
     "RetrievalConfig",
     "RetrievalMode",
     "load_config",
