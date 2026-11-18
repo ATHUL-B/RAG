@@ -14,3 +14,6 @@ chunking:
 
 retrieval:
   top_k: 5
+
+evaluation:
+  ks: [1, 3, 5, 10]

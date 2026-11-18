@@ -57,9 +57,15 @@ class RetrievalConfig(StrictConfig):
     top_k: PositiveInt = 5
 
 
+class EvaluationConfig(StrictConfig):
+    ks: tuple[PositiveInt, ...] = Field(default=(1, 3, 5, 10), min_length=1)
+    """Cut-offs for recall@K, precision@K, hit@K and nDCG@K."""
+
+
 class AppConfig(StrictConfig):
     experiment_name: str = Field(min_length=1)
     dataset: DatasetName = DatasetName.FINANCEBENCH
     paths: PathsConfig = PathsConfig()
     chunking: ChunkingConfig = ChunkingConfig()
     retrieval: RetrievalConfig = RetrievalConfig()
+    evaluation: EvaluationConfig = EvaluationConfig()

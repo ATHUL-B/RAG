@@ -24,7 +24,7 @@ ONLINE   Query ─► QueryRewriter ─► Retriever(s) ─► Fuser ─► Rera
 | `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex` |
 | `rag.retrieval` | Rewrite, retrieve, fuse, rerank | `QueryRewriter`, `Retriever`, `Fuser`, `Reranker` |
 | `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion` |
-| `rag.evaluation` | Golden sets, metrics, judges | `Judge`, `Verdict` |
+| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `Judge`, `Verdict` |
 | `rag.observability` | Timing and structured logs | `StageTimer`, `JsonFormatter` |
 | `rag.config` | Typed YAML config | `AppConfig`, `load_config` |
 | `rag.datasets` | Public dataset adapters | `FinanceBenchDataset`, `FinanceBenchDownloader`, `Fetcher` |
