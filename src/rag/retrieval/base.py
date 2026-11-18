@@ -22,6 +22,8 @@ class RetrievalResult(BaseModel):
     """Filter keys dropped, in order, because the stricter search found too little."""
     stage_candidates: dict[str, tuple[ScoredChunk, ...]] = Field(default_factory=dict)
     """Intermediate ranked lists by stage name (e.g. "dense", "bm25" before fusion)."""
+    timings_ms: dict[str, float] = Field(default_factory=dict)
+    """Wall-clock milliseconds of internal stages (e.g. "first_stage", "rerank")."""
 
 
 class QueryRewriter(ABC):

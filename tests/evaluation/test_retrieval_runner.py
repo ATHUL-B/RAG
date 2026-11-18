@@ -234,3 +234,22 @@ def test_pool_recall_without_stages_is_recall_over_the_returned_list() -> None:
     (trace,) = _runner(ScriptedRetriever(RESULTS)).run([_item("deep", 1)]).traces
     assert trace.stage_ranks == {}
     assert trace.metrics["pool_recall"] == 0.0
+
+
+class TimedRetriever(Retriever):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def retrieve(self, query: Query, k: int) -> RetrievalResult:
+        self.calls += 1
+        return RetrievalResult(
+            candidates=(), timings_ms={"first_stage": 10.0 * self.calls, "rerank": 100.0}
+        )
+
+
+def test_internal_stage_timings_are_traced_and_summarized() -> None:
+    result = _runner(TimedRetriever()).run([_item("a", 1), _item("b", 1)])
+    assert result.traces[0].timings_ms["rerank"] == 100.0
+    assert set(result.stage_latency_ms) == {"first_stage", "rerank"}
+    assert result.stage_latency_ms["first_stage"]["max"] == 20.0
+    assert result.stage_latency_ms["rerank"]["p50"] == 100.0

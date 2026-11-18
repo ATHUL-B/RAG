@@ -74,6 +74,9 @@ class RetrievalRunResult(BaseModel):
     report: MetricsReport
     status_counts: dict[RetrievalStatus, int]
     latency_ms: dict[str, float]
+    """End-to-end retrieval latency percentiles."""
+    stage_latency_ms: dict[str, dict[str, float]]
+    """Percentiles per internal stage (e.g. first_stage, rerank), when reported."""
     skipped_unanswerable: list[str]
 
 
@@ -133,6 +136,7 @@ class RetrievalEvalRunner:
             report=aggregate(results),
             status_counts=dict(Counter(t.status for t in traces)),
             latency_ms=latency_summary([t.timings_ms[RETRIEVE_STAGE] for t in traces]),
+            stage_latency_ms=_stage_latency(traces),
             skipped_unanswerable=skipped,
         )
 
@@ -169,7 +173,7 @@ class RetrievalEvalRunner:
             relaxed=list(result.relaxed),
             stage_ranks=stage_ranks,
             retrieved=_records(hits, ids, qrels.keys()),
-            timings_ms=dict(timer.timings_ms),
+            timings_ms={**timer.timings_ms, **result.timings_ms},
             metrics=scores,
         )
         return trace, metrics.model_copy(update={"scores": scores})
@@ -195,6 +199,14 @@ class RetrievalEvalRunner:
         if not hits:
             return RetrievalStatus.NOT_RETRIEVED
         return RetrievalStatus.HIT if hits == evidence else RetrievalStatus.PARTIAL
+
+
+def _stage_latency(traces: Sequence[QueryTrace]) -> dict[str, dict[str, float]]:
+    stages = sorted({name for t in traces for name in t.timings_ms} - {RETRIEVE_STAGE})
+    return {
+        name: latency_summary([t.timings_ms[name] for t in traces if name in t.timings_ms])
+        for name in stages
+    }
 
 
 def _first_relevant_rank(ids: Sequence[str], qrels: Collection[str]) -> int | None:

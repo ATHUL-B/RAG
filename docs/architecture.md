@@ -1,6 +1,6 @@
 # Architecture
 
-Current state: **end-to-end retrieval baseline + metadata filters + BM25/hybrid** (Phase 3.3-3.4) (pypdf → recursive chunks → bge-small
+Current state: **end-to-end retrieval baseline + metadata filters + BM25/hybrid + optional cross-encoder reranking** (Phase 3.3-3.5) (pypdf → recursive chunks → bge-small
 embeddings → exact NumPy index → dense top-K), evaluated on FinanceBench with traces and
 failure-ladder status. No generation yet (see `backlog.md`). Guided tour:
 [`walkthroughs/phase-1-baseline.md`](walkthroughs/phase-1-baseline.md).
@@ -13,7 +13,7 @@ OFFLINE  raw PDFs ─► Parser ─► Cleaner ─► MetadataEnricher ─► Ch
                         ▼          ▼              ▼               ▼
                    data/processed/<stage>/*.jsonl   (inspectable artifact after every stage)
 
-ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same filters) ─► Fuser ─► Reranker ─► ContextAssembler ─► LLMClient ─► Answer
+ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same filters) ─► [Reranker] ─► Fuser ─► Reranker ─► ContextAssembler ─► LLMClient ─► Answer
                                      (filters applied before ranking)                       + trace + StageTimer
 ```
 
@@ -24,7 +24,7 @@ ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same 
 | `rag.domain` | Immutable data shared by all stages; deterministic IDs | `Document`, `Page`, `Chunk`, `SourceSpan`, `ScoredChunk`, `Query`, `Answer`, `GoldenItem` |
 | `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `RecursiveChunker`, `TokenCounter`, `ChunkStage`, `build_parser`, `build_chunker` |
 | `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex`; `SentenceTransformerEmbedder`, `ExactVectorStore`, `BM25Index`, `analyze`, `IndexStage`, `build_embedder` |
-| `rag.retrieval` | Extract filters, retrieve, fuse, rerank | `FilterExtractor`, `Retriever` → `RetrievalResult`, `Fuser`, `Reranker`; `DenseRetriever`, `KeywordRetriever`, `HybridRetriever`, `ReciprocalRankFusion`, `CatalogFilterExtractor`, `FilteredRetriever`, `build_retriever` |
+| `rag.retrieval` | Extract filters, retrieve, fuse, rerank | `FilterExtractor`, `Retriever` → `RetrievalResult`, `Fuser`, `Reranker`; `DenseRetriever`, `KeywordRetriever`, `HybridRetriever`, `ReciprocalRankFusion`, `CrossEncoderReranker`, `RerankingRetriever`, `CatalogFilterExtractor`, `FilteredRetriever`, `build_retriever` |
 | `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion` |
 | `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `evidence` (qrels, relevance units), `RetrievalEvalRunner`, `QueryTrace`, `compare_runs` (paired bootstrap), `ParseAuditor`, `ChunkAuditor`, `Judge`, `Verdict` |
 | `rag.observability` | Timing, latency percentiles, structured logs | `StageTimer`, `latency_summary`, `JsonFormatter` |
@@ -49,6 +49,9 @@ ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same 
   each inner list is kept in `RetrievalResult.stage_candidates` so traces record which
   retriever found the evidence (`stage_ranks`) and the pool a reranker would see
   (`pool_recall`) (HLD 007). The BM25 index is rebuilt in memory from the indexed chunks.
+- **Reranking**: `RerankingRetriever` asks the first stage for `depth` candidates and
+  reranks them; `RetrievalResult.timings_ms` carries per-stage latency (first_stage, rerank)
+  into traces and run summaries (HLD 008). Composition order: filters → reranker → first stage.
 - **Relevance unit = evidence page** (`<doc_id>#p<page>`): a chunk is relevant if it covers an
   evidence page (HLD 003). Lenient by design; the chunk audit measures how much evidence
   actually fits in one chunk.
