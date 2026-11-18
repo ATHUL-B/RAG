@@ -5,9 +5,16 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
+import numpy as np
+import numpy.typing as npt
+
 from rag.domain import Chunk, Metadata, ScoredChunk
 
-Vector = Sequence[float]
+Vector = npt.NDArray[np.float32]
+"""One embedding, shape ``(dimension,)``."""
+
+Matrix = npt.NDArray[np.float32]
+"""Many embeddings, shape ``(n, dimension)``; row i belongs to input i."""
 
 
 class Embedder(ABC):
@@ -16,14 +23,23 @@ class Embedder(ABC):
     @property
     @abstractmethod
     def model_id(self) -> str:
-        """Exact model name + version; stored on every vector (CLAUDE.md §2)."""
+        """Exact model name + revision; stored with every index (CLAUDE.md §2)."""
 
     @property
     @abstractmethod
     def dimension(self) -> int: ...
 
+    @property
     @abstractmethod
-    def embed_documents(self, texts: Sequence[str]) -> list[Vector]: ...
+    def max_tokens(self) -> int:
+        """Longer inputs are truncated by the model: their tail is never embedded."""
+
+    @abstractmethod
+    def count_tokens(self, text: str) -> int:
+        """Length in the *model's own* tokenizer (may differ from the chunker's)."""
+
+    @abstractmethod
+    def embed_documents(self, texts: Sequence[str]) -> Matrix: ...
 
     @abstractmethod
     def embed_query(self, text: str) -> Vector:
@@ -32,7 +48,7 @@ class Embedder(ABC):
 
 class VectorStore(ABC):
     @abstractmethod
-    def upsert(self, chunks: Sequence[Chunk], vectors: Sequence[Vector]) -> None: ...
+    def upsert(self, chunks: Sequence[Chunk], vectors: Matrix) -> None: ...
 
     @abstractmethod
     def search(self, vector: Vector, k: int, filters: Metadata | None = None) -> list[ScoredChunk]:

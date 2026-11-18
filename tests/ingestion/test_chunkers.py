@@ -2,10 +2,10 @@ import random
 from itertools import pairwise
 
 import pytest
-from fakes import CharCounter, WordCounter
 
 from rag.domain import Chunk, Document, Page
 from rag.ingestion.chunkers import RecursiveChunker
+from support.tokenizers import CharCounter, WordCounter
 
 
 def _doc(*pages: str, **metadata: str | int) -> Document:

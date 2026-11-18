@@ -5,9 +5,11 @@ description = "A production-grade RAG system built step by step for learning."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "numpy>=2.0",
     "pydantic>=2.9",
     "pypdf[crypto]>=7.1.0",
     "pyyaml>=6.0",
+    "sentence-transformers>=3.3",
     "tiktoken>=0.8",
 ]
 
@@ -55,13 +57,15 @@ select = [
 python_version = "3.12"
 strict = true
 files = ["src", "tests", "scripts"]
-mypy_path = "src"
+mypy_path = ["src", "tests"]
+explicit_package_bases = true
 plugins = ["pydantic.mypy"]
 
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers -m 'not slow'"
+pythonpath = ["tests"]
+addopts = "-ra --strict-markers --import-mode=importlib -m 'not slow'"
 markers = [
     "slow: needs real models, network or large data; excluded by default (run with -m slow)",
 ]
