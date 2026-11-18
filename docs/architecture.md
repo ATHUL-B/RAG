@@ -2,7 +2,8 @@
 
 Current state: **end-to-end retrieval baseline** (pypdf → recursive chunks → bge-small
 embeddings → exact NumPy index → dense top-K), evaluated on FinanceBench with traces and
-failure-ladder status. No generation yet (see `backlog.md`).
+failure-ladder status. No generation yet (see `backlog.md`). Guided tour:
+[`walkthroughs/phase-1-baseline.md`](walkthroughs/phase-1-baseline.md).
 
 ## Pipelines
 

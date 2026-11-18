@@ -3,7 +3,9 @@ To learn production level RAG system
 
 Curriculum: `RAG from Basics to Advanced A Production-Scale Study Guide.md`.
 Contributor/agent guidance: `CLAUDE.md`. Design docs: `docs/` (start with
-`architecture.md` and `backlog.md`).
+`architecture.md` and `backlog.md`). **New here? Read
+[`docs/walkthroughs/phase-1-baseline.md`](docs/walkthroughs/phase-1-baseline.md)** for what
+was built, why, and how to read the code.
 
 ## Setup
 
