@@ -15,7 +15,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 | # | Item | Guide | Status |
 | --- | --- | --- | --- |
-| 1.1 | Retrieval metrics (recall@K, precision@K, hit rate, MRR, nDCG@K), tested on the guide's worked examples | 13 | todo |
+| 1.1 | Retrieval metrics (recall@K, precision@K, hit rate, MRR, nDCG@K) + per-segment aggregation, tested on the guide's worked examples (HLD 001) | 13 | done |
 | 1.2 | Evidence mapping: golden `SourceSpan` (doc + page) → chunk IDs at eval time | 13 | todo |
 | 1.3 | Baseline PDF parser (page-preserving) + parsed-document artifacts + parser audit script | 3 | todo |
 | 1.4 | Recursive chunker (400 tokens, 0 overlap) + chunk artifacts | 4 | todo |
