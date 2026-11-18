@@ -1,12 +1,12 @@
 from pathlib import Path
 
 import pytest
-from fakes import WordCounter
 
 from rag.domain import ChunkSet, Document, Page
 from rag.ingestion.chunk_stage import ChunkStage
 from rag.ingestion.chunkers import RecursiveChunker
 from rag.storage import JsonArtifactStore, atomic_write_bytes
+from support.tokenizers import WordCounter
 
 
 @pytest.fixture

@@ -3,7 +3,9 @@ To learn production level RAG system
 
 Curriculum: `RAG from Basics to Advanced A Production-Scale Study Guide.md`.
 Contributor/agent guidance: `CLAUDE.md`. Design docs: `docs/` (start with
-`architecture.md` and `backlog.md`).
+`architecture.md` and `backlog.md`). **New here? Read
+[`docs/walkthroughs/phase-1-baseline.md`](docs/walkthroughs/phase-1-baseline.md)** for what
+was built, why, and how to read the code.
 
 ## Setup
 
@@ -17,6 +19,8 @@ uv run python scripts/parse_documents.py   # PDFs -> data/processed/parsed/<doc_
 uv run python scripts/audit_parsing.py     # how much golden evidence survived parsing
 uv run python scripts/chunk_documents.py   # -> data/processed/chunks/<fingerprint>/<doc_id>.json
 uv run python scripts/audit_chunking.py    # how much evidence fits in a single chunk
+uv run python scripts/build_index.py       # embed chunks (bge-small, local) -> data/indexes/dense/
+uv run python scripts/evaluate_retrieval.py  # recall@K, nDCG, MRR per segment + traces in runs/
 ```
 
 Other commands: `make format`, `make test`, `make test-slow` (network/model tests),

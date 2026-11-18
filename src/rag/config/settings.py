@@ -72,6 +72,17 @@ class ChunkingConfig(StrictConfig):
         return self
 
 
+class EmbeddingConfig(StrictConfig):
+    """Defaults follow ADR 0003."""
+
+    model_id: str = Field(default="BAAI/bge-small-en-v1.5", min_length=1)
+    revision: str | None = "5c38ec7c405ec4b44b94cc5a9bb96e735b38267a"
+    """Pinned model revision: the same config always means the same weights."""
+    query_prefix: str = "Represent this sentence for searching relevant passages: "
+    batch_size: PositiveInt = 64
+    device: str = Field(default="auto", pattern=r"^(auto|cpu|mps|cuda(:\d+)?)$")
+
+
 class RetrievalConfig(StrictConfig):
     top_k: PositiveInt = 5
 
@@ -89,5 +100,6 @@ class AppConfig(StrictConfig):
     paths: PathsConfig = PathsConfig()
     parsing: ParsingConfig = ParsingConfig()
     chunking: ChunkingConfig = ChunkingConfig()
+    embedding: EmbeddingConfig = EmbeddingConfig()
     retrieval: RetrievalConfig = RetrievalConfig()
     evaluation: EvaluationConfig = EvaluationConfig()

@@ -1,9 +1,8 @@
-from fakes import WordCounter
-
 from rag.config import ChunkingConfig, ParsingConfig
 from rag.ingestion.chunkers import RecursiveChunker
 from rag.ingestion.factory import build_chunker, build_parser
 from rag.ingestion.pdf_parser import PypdfParser
+from support.tokenizers import WordCounter
 
 
 def test_default_config_builds_pypdf_parser() -> None:

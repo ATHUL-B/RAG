@@ -19,9 +19,9 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 1.2 | Evidence mapping: golden `SourceSpan` (doc + page) → chunk relevance units, + chunk audit (HLD 003) | 13 | done |
 | 1.3 | Baseline PDF parser (page-preserving) + parsed-document artifacts + parser audit script (HLD 002) | 3 | done |
 | 1.4 | Recursive chunker (400 tokens, 0 overlap) + chunk artifacts (HLD 003) | 4 | done |
-| 1.5 | Embedder + vector store + dense retriever (ADR: embedding model, vector DB) | 5, 6 | todo |
-| 1.6 | `ingest` and `eval` CLIs; per-question traces; failure-ladder report (rungs 1-2) | 13 | todo |
-| 1.7 | First `experiments/LOG.md` entry: baseline recall@5 per segment | 13 | todo |
+| 1.5 | Embedder + vector store + dense retriever (ADR 0003, HLD 004) | 5, 6 | done |
+| 1.6 | Eval runner + CLI; per-question traces; failure-ladder status (rungs 1-2) (HLD 005) | 13 | done |
+| 1.7 | First `experiments/LOG.md` entry: baseline recall@5 = 0.273 per segment | 13 | done |
 
 ## Phase 2: Generation and generation metrics
 
@@ -56,8 +56,11 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 - Parse audit: add a whitespace-insensitive coverage variant (annotator evidence has
   spaces stripped, e.g. `Cashandcashequivalents`, which deflates current coverage).
-- 1.5: verify every chunk fits the chosen embedding model's max sequence length (chunks
-  are sized with tiktoken cl100k, which may differ from the embedder's tokenizer).
+- 91 of 26,264 chunks exceed bge's 512-token limit (sized with tiktoken; bge splits numbers
+  more finely) and are truncated. Options: size chunks with the embedder's tokenizer, or
+  lower chunk_size. Measure on the eval.
+- **Priority for Phase 3:** the baseline shows 40.7% of top-5 slots are the version trap
+  (same company, other filing). Do 3.3 (metadata filters) first.
 - Cleaning (3.1): normalize `\xa0`, re-join mid-word line breaks; try `fontTools`
   (pypdf warns it is missing for some CFF fonts) and compare on the parse audit.
 
