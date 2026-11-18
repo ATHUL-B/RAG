@@ -20,7 +20,7 @@ from rag.evaluation.retrieval_report import (
 from rag.observability import StageTimer
 from rag.observability.stats import latency_summary
 from rag.observability.timing import Clock
-from rag.retrieval.base import Retriever
+from rag.retrieval.base import RetrievalResult, Retriever
 
 RETRIEVE_STAGE = "retrieve"
 
@@ -59,6 +59,8 @@ class QueryTrace(BaseModel):
     status: RetrievalStatus
     applied_filters: Filters
     relaxed: list[str]
+    stage_ranks: dict[str, int | None]
+    """Per intermediate stage (e.g. dense, bm25): rank of the first evidence chunk, or None."""
     retrieved: list[RetrievedRecord]
     timings_ms: dict[str, float]
     metrics: dict[str, float]
@@ -146,10 +148,15 @@ class RetrievalEvalRunner:
         evidence_docs = {span.doc_id for span in item.evidence}
         doc_hit = any(h.chunk.doc_id in evidence_docs for h in hits[: self._top_k])
         filter_ok = self._filters_allow_evidence(result.applied_filters, evidence_docs)
+        stage_ranks = {
+            name: _first_relevant_rank(relevance_ids([c.chunk for c in stage], item), qrels)
+            for name, stage in result.stage_candidates.items()
+        }
         scores = {
             **metrics.scores,
             f"doc_hit@{self._top_k}": float(doc_hit),
             "filter_ok": float(filter_ok),
+            "pool_recall": _pool_recall(result, item, qrels),
         }
 
         trace = QueryTrace(
@@ -160,6 +167,7 @@ class RetrievalEvalRunner:
             status=self._status(set(qrels), set(ids[: self._top_k]), filter_ok),
             applied_filters=dict(result.applied_filters),
             relaxed=list(result.relaxed),
+            stage_ranks=stage_ranks,
             retrieved=_records(hits, ids, qrels.keys()),
             timings_ms=dict(timer.timings_ms),
             metrics=scores,
@@ -187,6 +195,21 @@ class RetrievalEvalRunner:
         if not hits:
             return RetrievalStatus.NOT_RETRIEVED
         return RetrievalStatus.HIT if hits == evidence else RetrievalStatus.PARTIAL
+
+
+def _first_relevant_rank(ids: Sequence[str], qrels: Collection[str]) -> int | None:
+    return next((rank for rank, unit in enumerate(ids, start=1) if unit in qrels), None)
+
+
+def _pool_recall(result: RetrievalResult, item: GoldenItem, qrels: Collection[str]) -> float:
+    """Share of evidence units anywhere in the candidate pool (all stages + final list).
+
+    Bounds what a reranker could achieve: it can only reorder what it is given (Part 13).
+    """
+    pool = [c.chunk for c in result.candidates]
+    pool += [c.chunk for stage in result.stage_candidates.values() for c in stage]
+    found = set(relevance_ids(pool, item)) & set(qrels)
+    return len(found) / len(qrels)
 
 
 def _records(

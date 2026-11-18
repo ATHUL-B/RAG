@@ -62,13 +62,25 @@ def test_chunks_dir_is_namespaced_by_chunker_fingerprint() -> None:
     assert config.paths.chunks_dir("abc") == Path("data/processed/chunks/abc")
 
 
-@pytest.mark.parametrize("name", ["filters.yaml", "filters-window1.yaml"])
-def test_committed_ablation_configs_are_valid_and_differ_only_in_filters(name: str) -> None:
+@pytest.mark.parametrize(
+    "name", ["filters.yaml", "filters-window1.yaml", "bm25.yaml", "hybrid.yaml"]
+)
+def test_committed_ablation_configs_differ_from_baseline_only_in_retrieval(name: str) -> None:
     baseline = load_config(REPO_ROOT / "configs" / "baseline.yaml")
     ablation = load_config(REPO_ROOT / "configs" / name)
     assert ablation.retrieval.filters.enabled
     same = {"experiment_name": "x", "retrieval": None}
     assert baseline.model_copy(update=same) == ablation.model_copy(update=same)
+
+
+@pytest.mark.parametrize(("name", "mode"), [("bm25.yaml", "bm25"), ("hybrid.yaml", "hybrid")])
+def test_keyword_ablations_change_only_the_mode_vs_filters(name: str, mode: str) -> None:
+    filters = load_config(REPO_ROOT / "configs" / "filters.yaml")
+    ablation = load_config(REPO_ROOT / "configs" / name)
+    assert ablation.retrieval.mode == mode
+    assert ablation.retrieval.model_copy(update={"mode": filters.retrieval.mode}) == (
+        filters.retrieval
+    )
 
 
 def test_unknown_filter_field_is_rejected(tmp_path: Path) -> None:
