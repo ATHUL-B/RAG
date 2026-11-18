@@ -5,7 +5,7 @@ set version; report per segment where it differs from the overall picture.
 
 | Date | Exp | Git SHA | Config | Change vs. previous | Recall@5 | nDCG@5 | MRR | Faithfulness | Correctness | p50 / p95 ms | Cost / query | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| | | | | | | | | | | | | No runs yet: baseline is backlog item 1.7 |
+| 2026-11-18 | `baseline-20261118T085010Z` | feat/dense-retrieval | `configs/baseline.yaml` | Baseline: pypdf → recursive 400/0 → bge-small-en-v1.5 → exact dense top-5, **no filters** | 0.273 | 0.201 | 0.198 | - | - | 9.3 / 30.2 (retrieval only) | $0 (local) | hit@5 0.300, recall@10 0.357, doc_hit@5 0.813. Status @5: 37 hit, 8 partial, 105 not_retrieved, 0 not_in_index. **Top-5 slots: 40.7% same company other filing (version trap), 29.9% right filing wrong page, 22.1% other company, 7.3% evidence.** Weakest: `reasoning:logical-reasoning` recall@5 0.029, `evidence:multi` 0.143. 91 chunks > 512 bge tokens (truncated). Next lever: metadata filters (3.3). |
 
 ## Parse audits (debugging-ladder rung 1)
 

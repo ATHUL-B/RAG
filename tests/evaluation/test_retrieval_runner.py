@@ -1,0 +1,152 @@
+import pytest
+
+from rag.domain import Chunk, GoldenItem, Query, ScoredChunk, SourceSpan
+from rag.evaluation.retrieval_report import RetrievalEvaluator
+from rag.evaluation.retrieval_runner import (
+    RetrievalEvalRunner,
+    RetrievalStatus,
+    indexed_units,
+)
+from rag.retrieval.base import Retriever
+
+
+def _chunk(chunk_id: str, doc_id: str, page: int) -> Chunk:
+    return Chunk(
+        chunk_id=chunk_id,
+        doc_id=doc_id,
+        text="t",
+        char_start=0,
+        char_end=1,
+        page_start=page,
+        page_end=page,
+    )
+
+
+class ScriptedRetriever(Retriever):
+    """Returns a fixed chunk list per question text."""
+
+    def __init__(self, results: dict[str, list[Chunk]]) -> None:
+        self._results = results
+        self.depths: list[int] = []
+
+    def retrieve(self, query: Query, k: int) -> list[ScoredChunk]:
+        self.depths.append(k)
+        chunks = self._results[query.text][:k]
+        return [
+            ScoredChunk(chunk=c, score=1.0 - i / 10, rank=i + 1, stage="dense")
+            for i, c in enumerate(chunks)
+        ]
+
+
+class TickClock:
+    def __init__(self, step: float) -> None:
+        self.now, self.step = 0.0, step
+
+    def __call__(self) -> float:
+        self.now += self.step
+        return self.now
+
+
+def _item(
+    item_id: str, *pages: int, doc: str = "D", tags: frozenset[str] = frozenset()
+) -> GoldenItem:
+    return GoldenItem(
+        item_id=item_id,
+        question=item_id,
+        reference_answer="a",
+        evidence=tuple(SourceSpan(doc_id=doc, page_index=p) for p in pages),
+        tags=tags,
+    )
+
+
+NOISE = [_chunk(f"n{i}", "OTHER", i) for i in range(5)]
+RESULTS = {
+    "hit": [_chunk("h", "D", 1), *NOISE],
+    "partial": [_chunk("p", "D", 1), *NOISE],
+    "miss_right_doc": [*NOISE[:2], _chunk("w", "D", 7), *NOISE[2:]],
+    "deep": [*NOISE, _chunk("late", "D", 1)],
+    "unindexed": NOISE,
+}
+INDEXED = indexed_units([_chunk("x", "D", 1), _chunk("y", "D", 2), _chunk("z", "D", 7)])
+
+
+def _runner(retriever: Retriever, top_k: int = 3) -> RetrievalEvalRunner:
+    return RetrievalEvalRunner(
+        retriever, RetrievalEvaluator(ks=[1, 5]), INDEXED, top_k=top_k, clock=TickClock(0.01)
+    )
+
+
+def test_indexed_units_cover_every_page_of_multi_page_chunks() -> None:
+    chunk = _chunk("c", "D", 3).model_copy(update={"page_end": 4})
+    assert indexed_units([chunk]) == {"D#p3", "D#p4"}
+
+
+def test_classifies_each_question_on_the_failure_ladder() -> None:
+    items = [
+        _item("hit", 1),
+        _item("partial", 1, 2),
+        _item("miss_right_doc", 1),
+        _item("deep", 1),
+        _item("unindexed", 99),
+    ]
+    result = _runner(ScriptedRetriever(RESULTS)).run(items)
+    status = {t.item_id: t.status for t in result.traces}
+
+    assert status == {
+        "hit": RetrievalStatus.HIT,
+        "partial": RetrievalStatus.PARTIAL,
+        "miss_right_doc": RetrievalStatus.NOT_RETRIEVED,
+        "deep": RetrievalStatus.NOT_RETRIEVED,  # found, but below top_k=3
+        "unindexed": RetrievalStatus.NOT_IN_INDEX,
+    }
+    assert result.status_counts[RetrievalStatus.NOT_RETRIEVED] == 2
+
+
+def test_retrieves_deep_enough_for_every_metric_cutoff() -> None:
+    retriever = ScriptedRetriever(RESULTS)
+    result = _runner(retriever, top_k=3).run([_item("deep", 1)])
+    assert retriever.depths == [5]  # max(ks=[1, 5], top_k=3)
+    (trace,) = result.traces
+    assert trace.metrics["recall@5"] == 0.0  # 'late' is 6th: beyond depth 5
+    assert len(trace.retrieved) == 5
+
+
+def test_doc_hit_separates_wrong_document_from_wrong_page() -> None:
+    result = _runner(ScriptedRetriever(RESULTS)).run(
+        [_item("miss_right_doc", 1), _item("unindexed", 99)]
+    )
+    doc_hit = {t.item_id: t.metrics["doc_hit@3"] for t in result.traces}
+    assert doc_hit == {"miss_right_doc": 1.0, "unindexed": 0.0}
+    assert result.report.overall.means["doc_hit@3"] == 0.5
+
+
+def test_trace_records_ranked_candidates_with_relevance() -> None:
+    result = _runner(ScriptedRetriever(RESULTS)).run([_item("hit", 1, tags=frozenset({"t"}))])
+    (trace,) = result.traces
+    assert trace.evidence_units == ["D#p1"]
+    assert trace.tags == ["t"]
+    first = trace.retrieved[0]
+    assert (first.rank, first.chunk_id, first.relevance_id, first.relevant) == (
+        1,
+        "h",
+        "D#p1",
+        True,
+    )
+    assert trace.retrieved[1].relevant is False
+    assert trace.timings_ms == {"retrieve": pytest.approx(10.0)}
+    assert result.latency_ms["p50"] == pytest.approx(10.0)
+    assert result.report.segments["t"].count == 1
+
+
+def test_unanswerable_items_are_skipped_and_listed() -> None:
+    unanswerable = GoldenItem(item_id="u", question="u", reference_answer="", evidence=())
+    result = _runner(ScriptedRetriever(RESULTS)).run([unanswerable, _item("hit", 1)])
+    assert result.skipped_unanswerable == ["u"]
+    assert [t.item_id for t in result.traces] == ["hit"]
+
+
+def test_rejects_empty_runs_and_invalid_top_k() -> None:
+    with pytest.raises(ValueError, match="no answerable"):
+        _runner(ScriptedRetriever(RESULTS)).run([])
+    with pytest.raises(ValueError, match="top_k"):
+        RetrievalEvalRunner(ScriptedRetriever({}), RetrievalEvaluator([1]), set(), top_k=0)

@@ -1,8 +1,8 @@
 # Architecture
 
-Current state: **parsing and chunking work** (pypdf → `data/processed/parsed/`, recursive
-chunker → `data/processed/chunks/<fingerprint>/`, plus parse and chunk audits). No index or
-LLM yet (see `backlog.md`).
+Current state: **end-to-end retrieval baseline** (pypdf → recursive chunks → bge-small
+embeddings → exact NumPy index → dense top-K), evaluated on FinanceBench with traces and
+failure-ladder status. No generation yet (see `backlog.md`).
 
 ## Pipelines
 
@@ -22,11 +22,11 @@ ONLINE   Query ─► QueryRewriter ─► Retriever(s) ─► Fuser ─► Rera
 | --- | --- | --- |
 | `rag.domain` | Immutable data shared by all stages; deterministic IDs | `Document`, `Page`, `Chunk`, `SourceSpan`, `ScoredChunk`, `Query`, `Answer`, `GoldenItem` |
 | `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `RecursiveChunker`, `TokenCounter`, `ChunkStage`, `build_parser`, `build_chunker` |
-| `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex` |
-| `rag.retrieval` | Rewrite, retrieve, fuse, rerank | `QueryRewriter`, `Retriever`, `Fuser`, `Reranker` |
+| `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex`; `SentenceTransformerEmbedder`, `ExactVectorStore`, `IndexStage`, `build_embedder` |
+| `rag.retrieval` | Rewrite, retrieve, fuse, rerank | `QueryRewriter`, `Retriever`, `Fuser`, `Reranker`; `DenseRetriever` |
 | `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion` |
-| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `evidence` (qrels, relevance units), `ParseAuditor`, `ChunkAuditor`, `Judge`, `Verdict` |
-| `rag.observability` | Timing and structured logs | `StageTimer`, `JsonFormatter` |
+| `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `evidence` (qrels, relevance units), `RetrievalEvalRunner`, `QueryTrace`, `ParseAuditor`, `ChunkAuditor`, `Judge`, `Verdict` |
+| `rag.observability` | Timing, latency percentiles, structured logs | `StageTimer`, `latency_summary`, `JsonFormatter` |
 | `rag.config` | Typed YAML config | `AppConfig`, `load_config` |
 | `rag.storage` | Atomic writes, safe keys, JSON artifacts | `JsonArtifactStore`, `atomic_write_bytes` |
 | `rag.datasets` | Public dataset adapters | `FinanceBenchDataset`, `FinanceBenchDownloader`, `Fetcher` |
@@ -44,4 +44,7 @@ ONLINE   Query ─► QueryRewriter ─► Retriever(s) ─► Fuser ─► Rera
   evidence page (HLD 003). Lenient by design; the chunk audit measures how much evidence
   actually fits in one chunk.
 - **Errors per stage** (`IngestionError`, `RetrievalError`, ...) under `RagError`.
-- Dataset choice: see `adr/0001-dataset.md`. Tooling: `adr/0002-tooling.md`.
+- Dense index stored at `data/indexes/dense/<chunker_fp>__<model_slug>/` with a manifest;
+  loading with a different model is refused (never mix models).
+- Dataset: `adr/0001-dataset.md`. Tooling: `adr/0002-tooling.md`. Embeddings and vector
+  store: `adr/0003-embedding-model-and-vector-store.md`.
