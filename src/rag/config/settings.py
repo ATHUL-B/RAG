@@ -24,6 +24,10 @@ class DatasetName(StrEnum):
     FINANCEBENCH = "financebench"
 
 
+class ParserName(StrEnum):
+    PYPDF = "pypdf"
+
+
 class ChunkingStrategy(StrEnum):
     RECURSIVE = "recursive"
 
@@ -39,6 +43,15 @@ class PathsConfig(StrictConfig):
     @property
     def processed_dir(self) -> Path:
         return self.data_dir / "processed"
+
+    @property
+    def parsed_dir(self) -> Path:
+        """Parsed ``Document`` artifacts, one JSON per document."""
+        return self.processed_dir / "parsed"
+
+
+class ParsingConfig(StrictConfig):
+    parser: ParserName = ParserName.PYPDF
 
 
 class ChunkingConfig(StrictConfig):
@@ -60,12 +73,15 @@ class RetrievalConfig(StrictConfig):
 class EvaluationConfig(StrictConfig):
     ks: tuple[PositiveInt, ...] = Field(default=(1, 3, 5, 10), min_length=1)
     """Cut-offs for recall@K, precision@K, hit@K and nDCG@K."""
+    parse_audit_min_coverage: float = Field(default=0.8, ge=0.0, le=1.0)
+    """Evidence passes the parse audit when this share of its tokens is on the parsed page."""
 
 
 class AppConfig(StrictConfig):
     experiment_name: str = Field(min_length=1)
     dataset: DatasetName = DatasetName.FINANCEBENCH
     paths: PathsConfig = PathsConfig()
+    parsing: ParsingConfig = ParsingConfig()
     chunking: ChunkingConfig = ChunkingConfig()
     retrieval: RetrievalConfig = RetrievalConfig()
     evaluation: EvaluationConfig = EvaluationConfig()

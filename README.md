@@ -13,6 +13,8 @@ Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 for you).
 make install                 # uv sync: creates .venv with all dependencies
 make check                   # format check, lint, type check, tests (what CI runs)
 make download-financebench   # metadata + the 84 PDFs the questions reference
+uv run python scripts/parse_documents.py   # PDFs -> data/processed/parsed/<doc_id>.json
+uv run python scripts/audit_parsing.py     # how much golden evidence survived parsing
 ```
 
 Other commands: `make format`, `make test`, `make test-slow` (network/model tests),
