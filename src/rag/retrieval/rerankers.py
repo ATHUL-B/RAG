@@ -88,7 +88,7 @@ class CrossEncoderReranker(Reranker):
             raise ValueError("top_n must be >= 1")
         if not candidates:
             return []
-        scores = self._scorer.score([(query.text, c.chunk.text) for c in candidates])
+        scores = self._scorer.score([(query.text, c.chunk.indexed_text) for c in candidates])
         if len(scores) != len(candidates):
             raise RetrievalError(f"scorer returned {len(scores)} scores for {len(candidates)}")
         order = sorted(range(len(candidates)), key=lambda i: -scores[i])[:top_n]

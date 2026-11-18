@@ -57,3 +57,14 @@ def test_embeds_all_chunks_in_batches(chunk_sets: JsonArtifactStore[ChunkSet]) -
 def test_rejects_invalid_batch_size(chunk_sets: JsonArtifactStore[ChunkSet]) -> None:
     with pytest.raises(ValueError, match="batch_size"):
         IndexStage(HashingEmbedder(), chunk_sets, batch_size=0)
+
+
+def test_embeds_the_indexed_text_including_context(tmp_path: Path) -> None:
+    store = JsonArtifactStore(tmp_path, ChunkSet)
+    chunk = _chunk("A", 0, "alpha").model_copy(update={"context": "cash flow statement"})
+    store.save("A", ChunkSet(doc_id="A", chunker_fingerprint="fp", chunks=(chunk,)))
+    embedder = HashingEmbedder(max_tokens=3)
+    vectors, report = IndexStage(embedder, store).build(["A"])
+    hit = vectors.search(embedder.embed_query("cash flow statement alpha"), 1)[0]
+    assert hit.score == pytest.approx(1.0)
+    assert report.truncated_chunk_ids == ["A-0"]  # 4 indexed words > 3

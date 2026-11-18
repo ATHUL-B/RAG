@@ -24,6 +24,11 @@ class TestDocument:
     def test_text_joins_pages_with_separator(self) -> None:
         assert _doc("abc", "de").text == f"abc{PAGE_SEPARATOR}de"
 
+    def test_page_spans_locate_each_page_in_text(self) -> None:
+        doc = _doc("abc", "de", start=10)
+        assert doc.page_spans() == [(10, 0, 3), (11, 5, 7)]
+        assert [doc.text[s:e] for _, s, e in doc.page_spans()] == ["abc", "de"]
+
     def test_page_index_at_maps_offsets_to_pages(self) -> None:
         doc = _doc("abc", "de", start=10)
         second_page_start = len("abc") + len(PAGE_SEPARATOR)

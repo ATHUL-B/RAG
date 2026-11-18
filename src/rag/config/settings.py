@@ -58,12 +58,25 @@ class ParsingConfig(StrictConfig):
     parser: ParserName = ParserName.PYPDF
 
 
+class ContextConfig(StrictConfig):
+    """Contextual chunk headers (HLD 009): prepended to the indexed text, not to ``text``."""
+
+    enabled: bool = False
+    document_fields: tuple[str, ...] = ("company", "doc_type", "year")
+    page_title: bool = True
+    """Include the title block (statement/table/note name, column years) of the page."""
+    max_title_lines: PositiveInt = 8
+
+
 class ChunkingConfig(StrictConfig):
     strategy: ChunkingStrategy = ChunkingStrategy.RECURSIVE
     chunk_size: PositiveInt = 400
     chunk_overlap: NonNegativeInt = 0
     tokenizer: str = Field(default="cl100k_base", min_length=1)
     """tiktoken encoding used to measure chunk_size and chunk_overlap."""
+    respect_pages: bool = False
+    """Never let a chunk cross a page boundary (HLD 009)."""
+    context: ContextConfig = ContextConfig()
 
     @model_validator(mode="after")
     def _overlap_smaller_than_chunk(self) -> Self:

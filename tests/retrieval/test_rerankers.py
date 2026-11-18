@@ -103,3 +103,12 @@ def test_real_minilm_prefers_the_answering_passage() -> None:
         ]
     )
     assert scores[0] > scores[1]
+
+
+def test_reranker_reads_the_context_header() -> None:
+    scorer = WordOverlapScorer()
+    contextual = CANDIDATES[0].model_copy(
+        update={"chunk": CANDIDATES[0].chunk.model_copy(update={"context": "capital expenditure"})}
+    )
+    CrossEncoderReranker(scorer).rerank(QUERY, [contextual], top_n=1)
+    assert scorer.calls[0][0][1].startswith("capital expenditure\n\n")

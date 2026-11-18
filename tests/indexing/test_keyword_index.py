@@ -111,3 +111,12 @@ class TestBuilding:
 
     def test_empty_index_returns_nothing(self) -> None:
         assert BM25Index().search("anything", 5) == []
+
+
+def test_context_header_is_searchable() -> None:
+    chunk = _chunk("c", "Acquisitions net of cash acquired").model_copy(
+        update={"context": "Consolidated Statement of Cash Flows"}
+    )
+    index = BM25Index()
+    index.add([chunk, _chunk("other", "unrelated words")])
+    assert _ids(index, "statement cash flows") == ["c"]

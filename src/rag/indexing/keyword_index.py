@@ -64,7 +64,7 @@ class BM25Index(KeywordIndex):
             self._ids.add(chunk.chunk_id)
             position = len(self._chunks)
             self._chunks.append(chunk)
-            terms = Counter(self._analyzer(chunk.text))
+            terms = Counter(self._analyzer(chunk.indexed_text))
             new_lengths.append(sum(terms.values()))
             for term, frequency in terms.items():
                 positions, frequencies = new_postings[term]
