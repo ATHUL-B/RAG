@@ -1,0 +1,65 @@
+"""Typed, validated configuration.
+
+Every tunable number (chunk size, top-K, ...) lives here and in ``configs/*.yaml``,
+never as a literal in code, so an experiment is fully described by its config
+file plus the git SHA (CLAUDE.md §2). Sections are added as components land.
+"""
+
+from __future__ import annotations
+
+from enum import StrEnum
+from pathlib import Path
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, model_validator
+
+
+class StrictConfig(BaseModel):
+    """Unknown keys are errors: a typo in YAML must fail loudly, not be ignored."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+
+class DatasetName(StrEnum):
+    FINANCEBENCH = "financebench"
+
+
+class ChunkingStrategy(StrEnum):
+    RECURSIVE = "recursive"
+
+
+class PathsConfig(StrictConfig):
+    data_dir: Path = Path("data")
+    runs_dir: Path = Path("runs")
+
+    @property
+    def raw_dir(self) -> Path:
+        return self.data_dir / "raw"
+
+    @property
+    def processed_dir(self) -> Path:
+        return self.data_dir / "processed"
+
+
+class ChunkingConfig(StrictConfig):
+    strategy: ChunkingStrategy = ChunkingStrategy.RECURSIVE
+    chunk_size: PositiveInt = 400
+    chunk_overlap: NonNegativeInt = 0
+
+    @model_validator(mode="after")
+    def _overlap_smaller_than_chunk(self) -> Self:
+        if self.chunk_overlap >= self.chunk_size:
+            raise ValueError("chunk_overlap must be smaller than chunk_size")
+        return self
+
+
+class RetrievalConfig(StrictConfig):
+    top_k: PositiveInt = 5
+
+
+class AppConfig(StrictConfig):
+    experiment_name: str = Field(min_length=1)
+    dataset: DatasetName = DatasetName.FINANCEBENCH
+    paths: PathsConfig = PathsConfig()
+    chunking: ChunkingConfig = ChunkingConfig()
+    retrieval: RetrievalConfig = RetrievalConfig()

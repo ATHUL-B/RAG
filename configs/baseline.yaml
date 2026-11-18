@@ -1,0 +1,16 @@
+# Baseline experiment (study guide, Part 15 learning path, step 1).
+# One config file = one experiment. Copy and change ONE thing for an ablation.
+experiment_name: baseline
+dataset: financebench
+
+paths:
+  data_dir: data
+  runs_dir: runs
+
+chunking:
+  strategy: recursive
+  chunk_size: 400      # tokens
+  chunk_overlap: 0
+
+retrieval:
+  top_k: 5
