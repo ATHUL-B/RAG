@@ -37,6 +37,7 @@ class RecursiveChunker(Chunker):
         chunk_size: int,
         chunk_overlap: int = 0,
         separators: Sequence[str] = DEFAULT_SEPARATORS,
+        respect_pages: bool = False,
     ) -> None:
         if chunk_size < 1:
             raise ValueError("chunk_size must be >= 1")
@@ -48,29 +49,36 @@ class RecursiveChunker(Chunker):
         self._chunk_size = chunk_size
         self._chunk_overlap = chunk_overlap
         self._separators = tuple(separators)
+        self._respect_pages = respect_pages
 
     @cached_property
     def fingerprint(self) -> str:
-        return config_fingerprint(
-            {
-                "strategy": self.STRATEGY,
-                "chunk_size": self._chunk_size,
-                "chunk_overlap": self._chunk_overlap,
-                "tokenizer": self._counter.name,
-                "separators": list(self._separators),
-            }
-        )
+        settings: dict[str, object] = {
+            "strategy": self.STRATEGY,
+            "chunk_size": self._chunk_size,
+            "chunk_overlap": self._chunk_overlap,
+            "tokenizer": self._counter.name,
+            "separators": list(self._separators),
+        }
+        if self._respect_pages:  # only when on: existing fingerprints (and indexes) stay valid
+            settings["respect_pages"] = True
+        return config_fingerprint(settings)
 
     def chunk(self, document: Document) -> list[Chunk]:
         text = document.text
         if not text:
             return []
-        pieces = self._split(text, 0, len(text), self._separators)
+        if self._respect_pages:  # chunks never cross a page boundary (HLD 009)
+            regions = [(start, end) for _, start, end in document.page_spans() if start < end]
+        else:
+            regions = [(0, len(text))]
         chunks: list[Chunk] = []
-        for start, end in self._merge(pieces):
-            start, end = _trim(text, start, end)
-            if start < end:
-                chunks.append(self._make_chunk(document, start, end))
+        for region_start, region_end in regions:
+            pieces = self._split(text, region_start, region_end, self._separators)
+            for start, end in self._merge(pieces):
+                start, end = _trim(text, start, end)
+                if start < end:
+                    chunks.append(self._make_chunk(document, start, end))
         return chunks
 
     # ------------------------------------------------------------------ split

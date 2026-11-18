@@ -142,3 +142,25 @@ def test_random_documents_keep_invariants(seed: int) -> None:
     assert all(WordCounter().count(c.text) <= 25 for c in chunks)
     assert [c.char_start for c in chunks] == sorted(c.char_start for c in chunks)
     assert [w for c in chunks for w in _words(c)] == doc.text.split()
+
+
+class TestRespectPages:
+    def test_no_chunk_crosses_a_page(self) -> None:
+        doc = _doc("alpha beta", "gamma delta")
+        assert len(RecursiveChunker(WordCounter(), chunk_size=10).chunk(doc)) == 1
+        chunks = RecursiveChunker(WordCounter(), chunk_size=10, respect_pages=True).chunk(doc)
+        assert [c.text for c in chunks] == ["alpha beta", "gamma delta"]
+        assert all(c.page_start == c.page_end for c in chunks)
+        _assert_offsets_exact(doc, chunks)
+
+    def test_empty_pages_are_skipped(self) -> None:
+        doc = _doc("a b", "", "c d")
+        chunks = RecursiveChunker(WordCounter(), chunk_size=10, respect_pages=True).chunk(doc)
+        assert [(c.text, c.page_start) for c in chunks] == [("a b", 0), ("c d", 2)]
+
+    def test_fingerprint_is_unchanged_when_off(self) -> None:
+        """Existing chunk sets and indexes must keep their IDs (HLD 009)."""
+        default = RecursiveChunker(WordCounter(), chunk_size=10)
+        off = RecursiveChunker(WordCounter(), chunk_size=10, respect_pages=False)
+        on = RecursiveChunker(WordCounter(), chunk_size=10, respect_pages=True)
+        assert default.fingerprint == off.fingerprint != on.fingerprint

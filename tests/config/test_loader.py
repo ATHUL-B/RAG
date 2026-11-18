@@ -111,3 +111,20 @@ def test_rerank_ablations_change_only_rerank(name: str, base: str) -> None:
     after = load_config(REPO_ROOT / "configs" / name).retrieval
     assert after.rerank.enabled
     assert after.model_copy(update={"rerank": before.rerank}) == before
+
+
+@pytest.mark.parametrize(
+    ("name", "base", "section"),
+    [
+        ("pages.yaml", "filters.yaml", "chunking"),
+        ("pages-context.yaml", "pages.yaml", "chunking"),
+        ("pages-context-hybrid.yaml", "pages-context.yaml", "retrieval"),
+        ("pages-context-rerank.yaml", "pages-context.yaml", "retrieval"),
+    ],
+)
+def test_structural_ablations_change_one_section(name: str, base: str, section: str) -> None:
+    before = load_config(REPO_ROOT / "configs" / base)
+    after = load_config(REPO_ROOT / "configs" / name)
+    same = {"experiment_name": "x", section: None}
+    assert before.model_copy(update=same) == after.model_copy(update=same)
+    assert getattr(before, section) != getattr(after, section)

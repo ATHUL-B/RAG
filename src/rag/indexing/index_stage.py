@@ -66,8 +66,8 @@ class IndexStage:
     ) -> None:
         limit = self._embedder.max_tokens
         report.truncated_chunk_ids.extend(
-            c.chunk_id for c in batch if self._embedder.count_tokens(c.text) > limit
+            c.chunk_id for c in batch if self._embedder.count_tokens(c.indexed_text) > limit
         )
-        store.upsert(batch, self._embedder.embed_documents([c.text for c in batch]))
+        store.upsert(batch, self._embedder.embed_documents([c.indexed_text for c in batch]))
         report.chunks += len(batch)
         logger.info("embedded batch", extra={"chunks_total": report.chunks})

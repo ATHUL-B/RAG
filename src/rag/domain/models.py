@@ -84,6 +84,13 @@ class Document(DomainModel):
             offset += len(page.text) + len(PAGE_SEPARATOR)
         return tuple(starts)
 
+    def page_spans(self) -> list[tuple[int, int, int]]:
+        """``(page_index, char_start, char_end)`` of each page within :attr:`text`."""
+        return [
+            (page.page_index, start, start + len(page.text))
+            for page, start in zip(self.pages, self._page_starts, strict=True)
+        ]
+
     def page_index_at(self, char_offset: int) -> int:
         """Return the ``page_index`` containing ``char_offset`` in :attr:`text`.
 
@@ -112,6 +119,14 @@ class Chunk(DomainModel):
     page_start: NonNegativeInt
     page_end: NonNegativeInt
     metadata: Metadata = Field(default_factory=dict)
+    context: str = ""
+    """Text prepended for search only (e.g. "3M | 10k | 2018 | Consolidated Statement of
+    Cash Flows"). Never part of ``text``, so offsets stay exact (HLD 009)."""
+
+    @property
+    def indexed_text(self) -> str:
+        """What embedders, BM25 and rerankers read: context + text."""
+        return f"{self.context}\n\n{self.text}" if self.context else self.text
 
     @model_validator(mode="after")
     def _spans_are_valid(self) -> Self:

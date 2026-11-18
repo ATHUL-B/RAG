@@ -629,7 +629,7 @@ Design documents behind each step: `docs/hld/001`…`005`; decisions: `docs/adr/
 | Limitation | Why it's acceptable now | Where it gets addressed |
 | --- | --- | --- |
 | No cleaning; tables flattened | Baseline to measure against | 3.1 |
-| Chunks ignore headings/structure, may span pages | Same | 3.2 |
+| Chunks ignore headings/structure, may span pages | Same | 3.2 (done: HLD 009, page-aware + context headers) |
 | Chunk sizes measured in tiktoken, 91 chunks truncated by bge | Small (0.35%) | backlog note |
 | No metadata filters taken from the question | Shows the version trap clearly | **3.3 (done: HLD 006, recall@5 0.273 → 0.377)** |
 | Dense only; numbers and exact terms blur | Same | 3.4 (BM25 + RRF) |

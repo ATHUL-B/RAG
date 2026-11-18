@@ -1,6 +1,8 @@
 # Architecture
 
-Current state: **end-to-end retrieval baseline + metadata filters + BM25/hybrid + optional cross-encoder reranking** (Phase 3.3-3.5) (pypdf → recursive chunks → bge-small
+Current state: **retrieval with metadata filters and page-aware contextual chunks** (default
+`configs/pages-context.yaml`, recall@5 0.427), plus optional BM25/hybrid and cross-encoder
+reranking (Phase 3.2-3.5) (pypdf → recursive chunks → bge-small
 embeddings → exact NumPy index → dense top-K), evaluated on FinanceBench with traces and
 failure-ladder status. No generation yet (see `backlog.md`). Guided tour:
 [`walkthroughs/phase-1-baseline.md`](walkthroughs/phase-1-baseline.md).
@@ -8,7 +10,7 @@ failure-ladder status. No generation yet (see `backlog.md`). Guided tour:
 ## Pipelines
 
 ```
-OFFLINE  raw PDFs ─► Parser ─► Cleaner ─► MetadataEnricher ─► Chunker ─► Embedder ─► VectorStore
+OFFLINE  raw PDFs ─► Parser ─► Cleaner ─► MetadataEnricher ─► Chunker [+context] ─► Embedder ─► VectorStore
                         │          │              │               │                   KeywordIndex
                         ▼          ▼              ▼               ▼
                    data/processed/<stage>/*.jsonl   (inspectable artifact after every stage)
@@ -22,7 +24,7 @@ ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same 
 | Package | Responsibility | Key types |
 | --- | --- | --- |
 | `rag.domain` | Immutable data shared by all stages; deterministic IDs | `Document`, `Page`, `Chunk`, `SourceSpan`, `ScoredChunk`, `Query`, `Answer`, `GoldenItem` |
-| `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `RecursiveChunker`, `TokenCounter`, `ChunkStage`, `build_parser`, `build_chunker` |
+| `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `RecursiveChunker` (optionally page-aware), `ContextualChunker`, `HeaderContextualizer`, `TokenCounter`, `ChunkStage`, `build_parser`, `build_chunker` |
 | `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex`; `SentenceTransformerEmbedder`, `ExactVectorStore`, `BM25Index`, `analyze`, `IndexStage`, `build_embedder` |
 | `rag.retrieval` | Extract filters, retrieve, fuse, rerank | `FilterExtractor`, `Retriever` → `RetrievalResult`, `Fuser`, `Reranker`; `DenseRetriever`, `KeywordRetriever`, `HybridRetriever`, `ReciprocalRankFusion`, `CrossEncoderReranker`, `RerankingRetriever`, `CatalogFilterExtractor`, `FilteredRetriever`, `build_retriever` |
 | `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion` |
@@ -52,6 +54,9 @@ ONLINE   Query ─► FilterExtractor (company, year) ─► Dense + BM25 (same 
 - **Reranking**: `RerankingRetriever` asks the first stage for `depth` candidates and
   reranks them; `RetrievalResult.timings_ms` carries per-stage latency (first_stage, rerank)
   into traces and run summaries (HLD 008). Composition order: filters → reranker → first stage.
+- **Chunk text vs indexed text**: `Chunk.text` is always the exact source span;
+  `Chunk.context` (filing + page title block) is prepended only in `Chunk.indexed_text`,
+  which is what embedding, BM25 and reranking read (HLD 009).
 - **Relevance unit = evidence page** (`<doc_id>#p<page>`): a chunk is relevant if it covers an
   evidence page (HLD 003). Lenient by design; the chunk audit measures how much evidence
   actually fits in one chunk.
