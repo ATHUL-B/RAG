@@ -9,16 +9,18 @@ Anthropic API, a local model via Ollama, or both behind the existing `LLMClient`
 
 ## Decision
 
-Both, behind `LLMClient`, selected by config; **Claude first**.
+Anthropic, Bifrost, and Ollama are behind `LLMClient`, selected by config. Claude Sonnet
+is the default Claude model; Bifrost is the configured route for the current generation run.
 
 | Provider | Default model | Why | Cost |
 | --- | --- | --- | --- |
-| Anthropic API (`anthropic` Python SDK 2.x) | `claude-opus-5-5` | Strongest grounded answers and instruction following | $4 / 1M input, $20 / 1M output tokens (thinking is billed as output) |
+| Anthropic API (`anthropic` Python SDK 2.x) | `claude-sonnet-5-5` | Grounded answers and instruction following | Configured per model |
+| Bifrost (OpenAI-compatible chat completions) | `bedrock/global.anthropic.claude-sonnet-5-5` | Internal proxy route for the current evaluation | $2 / 1M input, $10 / 1M output tokens |
 | Ollama (local REST API) | `llama3.1:8b` (configurable) | Free, offline, data stays on the machine | $0, slower, weaker |
 
-Claude specifics (from the current API reference, not memory):
+Anthropic-specific request features (not used by Bifrost):
 
-- Thinking is always on for `claude-opus-5-5`; depth is controlled with
+- Thinking depth is controlled with
   `output_config.effort` (default `medium`, set explicitly in config).
 - Structured output via `output_config.format` (JSON schema), so answers parse reliably.
 - Server-side refusal fallbacks enabled by default (`fallbacks: "default"`, beta
@@ -32,7 +34,7 @@ guide recommends a different model family from the generator (Part 13).
 
 ## Consequences
 
-- Every evaluation run that calls Claude costs money: the eval script estimates cost first
+- Every evaluation run that calls Anthropic or Bifrost costs money: the eval script estimates cost first
   and refuses to run above a budget unless raised explicitly.
 - The retrieved document text is sent to Anthropic when the Claude provider is used.
 - Provider differences (structured-output support, token accounting) are hidden behind

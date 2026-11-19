@@ -30,7 +30,11 @@ are the next step (2.2).
   `response.model` (the model that actually answered), input/output tokens.
 - `OllamaLLMClient`: `POST /api/chat` with `format` = the JSON schema, `stream: false`;
   token counts from `prompt_eval_count` / `eval_count`.
-- Both: the SDK / HTTP call sits behind an injectable seam so tests never touch the network.
+- `BifrostLLMClient`: OpenAI-compatible `POST /v1/chat/completions`; sends the credential
+  as `x-bf-vk`, forces a schema-backed function call, and reads function arguments plus
+  standard prompt/completion usage.
+- Provider HTTP calls sit behind an injectable seam; credentials come from the configured
+  environment variable (default `BIFROST_API_KEY`) and are never placed in configs/traces.
 
 ### Generator (`generation/generator.py`: `GroundedAnswerGenerator`)
 
@@ -62,14 +66,16 @@ input price + expected output tokens × output price) and aborts if it exceeds `
 
 ```yaml
 generation:
-  provider: anthropic        # anthropic | ollama
-  model_id: claude-opus-5-5
+  provider: bifrost          # anthropic | ollama | bifrost
+  model_id: bedrock/global.anthropic.claude-sonnet-5-5
   effort: medium             # Claude only
   max_tokens: 16000
   max_sources: 5
   refusal_fallbacks: true    # Claude only
   ollama_url: http://localhost:11434
-  pricing: {input_per_mtok: 4.0, output_per_mtok: 20.0}
+  bifrost_url: https://bifrost-llm-proxy-alb-0.cmd.hotstar-prod.com/v1
+  bifrost_api_key_env: BIFROST_API_KEY
+  pricing: {input_per_mtok: 2.0, output_per_mtok: 10.0}
 ```
 
 ## Test plan

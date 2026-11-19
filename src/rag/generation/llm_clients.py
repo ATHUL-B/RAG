@@ -7,6 +7,7 @@ HTTP ``post_json`` function), so unit tests never call a real API.
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -32,7 +33,7 @@ class AnthropicLLMClient(LLMClient):
 
     def __init__(
         self,
-        model: str = "claude-opus-5-5",
+        model: str = "claude-sonnet-5-5",
         max_tokens: int = 16000,
         effort: str = "medium",
         refusal_fallbacks: bool = True,
@@ -100,15 +101,20 @@ class AnthropicLLMClient(LLMClient):
         )
 
 
-PostJson = Callable[[str, dict[str, Any], float], dict[str, Any]]
+PostJson = Callable[..., dict[str, Any]]
 
 
-def urllib_post_json(url: str, payload: dict[str, Any], timeout_s: float) -> dict[str, Any]:
-    """POST JSON with the standard library (local Ollama server; no extra dependency)."""
+def urllib_post_json(
+    url: str,
+    payload: dict[str, Any],
+    timeout_s: float,
+    headers: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """POST JSON with the standard library; no HTTP dependency is required."""
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", **(headers or {})},
         method="POST",
     )
     try:
@@ -116,7 +122,7 @@ def urllib_post_json(url: str, payload: dict[str, Any], timeout_s: float) -> dic
             body: dict[str, Any] = json.loads(response.read())
             return body
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise GenerationError(f"Ollama request to {url} failed: {exc}") from exc
+        raise GenerationError(f"LLM request to {url} failed: {exc}") from exc
 
 
 class OllamaLLMClient(LLMClient):
@@ -164,4 +170,100 @@ class OllamaLLMClient(LLMClient):
             input_tokens=int(body.get("prompt_eval_count", 0)),
             output_tokens=int(body.get("eval_count", 0)),
             stop_reason=str(body.get("done_reason", "stop")),
+        )
+
+
+class BifrostLLMClient(LLMClient):
+    """Claude or another model through Bifrost's OpenAI-compatible API."""
+
+    def __init__(
+        self,
+        model: str,
+        base_url: str = "https://bifrost-llm-proxy-alb-0.cmd.hotstar-prod.com/v1",
+        api_key_env: str = "BIFROST_API_KEY",
+        max_tokens: int = 16000,
+        timeout_s: float = 300.0,
+        post_json: PostJson = urllib_post_json,
+    ) -> None:
+        self._model = model
+        self._url = base_url.rstrip("/") + "/chat/completions"
+        self._api_key_env = api_key_env
+        if max_tokens < 1:
+            raise ValueError("max_tokens must be >= 1")
+        self._max_tokens = max_tokens
+        self._timeout_s = timeout_s
+        self._post_json = post_json
+
+    @property
+    def model_id(self) -> str:
+        return self._model
+
+    def request_payload(self, prompt: Prompt) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": prompt.system},
+                {"role": "user", "content": prompt.user},
+            ],
+            "max_tokens": self._max_tokens,
+        }
+        if prompt.response_schema is not None:
+            payload["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "grounded_answer",
+                        "description": "Return the grounded answer in the required schema.",
+                        "parameters": prompt.response_schema,
+                        "strict": True,
+                    },
+                },
+            ]
+            payload["tool_choice"] = {
+                "type": "function",
+                "function": {"name": "grounded_answer"},
+            }
+        return payload
+
+    def complete(self, prompt: Prompt) -> Completion:
+        api_key = os.environ.get(self._api_key_env)
+        if not api_key:
+            raise GenerationError(f"Bifrost credential missing: set {self._api_key_env}")
+        try:
+            body = self._post_json(
+                self._url,
+                self.request_payload(prompt),
+                self._timeout_s,
+                headers={"x-bf-vk": api_key},
+            )
+        except urllib.error.HTTPError as exc:
+            raise GenerationError(f"Bifrost request failed with HTTP {exc.code}") from exc
+        try:
+            choice = body["choices"][0]
+            message = choice["message"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise GenerationError(f"unexpected Bifrost response: {body!r:.200}") from exc
+        tool_calls = message.get("tool_calls", [])
+        grounded_call = next(
+            (
+                call
+                for call in tool_calls
+                if call.get("function", {}).get("name") == "grounded_answer"
+            ),
+            None,
+        )
+        if grounded_call is not None:
+            arguments = grounded_call["function"].get("arguments", "")
+            text = arguments if isinstance(arguments, str) else json.dumps(arguments)
+        elif message.get("content") is not None:
+            text = str(message["content"])
+        else:
+            raise GenerationError(f"unexpected Bifrost response: {body!r:.200}")
+        usage = body.get("usage", {})
+        return Completion(
+            text=text,
+            model_id=str(body.get("model", self._model)),
+            input_tokens=int(usage.get("prompt_tokens", 0)),
+            output_tokens=int(usage.get("completion_tokens", 0)),
+            stop_reason=str(choice.get("finish_reason", "stop")),
         )

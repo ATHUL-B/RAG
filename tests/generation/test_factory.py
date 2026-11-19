@@ -7,7 +7,7 @@ from rag.generation.llm_clients import AnthropicLLMClient, OllamaLLMClient
 def test_anthropic_is_the_default_provider() -> None:
     client = build_llm_client(GenerationConfig())
     assert isinstance(client, AnthropicLLMClient)
-    assert client.model_id == "claude-opus-5-5"  # no API call: the SDK client is lazy
+    assert client.model_id == "claude-sonnet-5-5"  # no API call: the SDK client is lazy
 
 
 def test_ollama_provider() -> None:

@@ -165,6 +165,7 @@ class EvaluationConfig(StrictConfig):
 class LLMProvider(StrEnum):
     ANTHROPIC = "anthropic"
     OLLAMA = "ollama"
+    BIFROST = "bifrost"
 
 
 class Effort(StrEnum):
@@ -186,15 +187,18 @@ class GenerationConfig(StrictConfig):
     """Grounded answer generation (ADR 0005, HLD 010)."""
 
     provider: LLMProvider = LLMProvider.ANTHROPIC
-    model_id: str = Field(default="claude-opus-5-5", min_length=1)
+    model_id: str = Field(default="claude-sonnet-5-5", min_length=1)
     effort: Effort = Effort.MEDIUM
-    """Claude only: thinking depth (thinking is always on for current Opus models)."""
+    """Claude only: requested reasoning effort where the provider supports it."""
     max_tokens: PositiveInt = 16000
     max_sources: PositiveInt = 5
     refusal_fallbacks: bool = True
     """Claude only: server-side fallback when a request is declined."""
     ollama_url: str = "http://localhost:11434"
     ollama_timeout_s: PositiveInt = 300
+    bifrost_url: str = "https://bifrost-llm-proxy-alb-0.cmd.hotstar-prod.com/v1"
+    bifrost_api_key_env: str = "BIFROST_API_KEY"
+    bifrost_timeout_s: PositiveInt = 300
     pricing: PricingConfig = PricingConfig()
     expected_output_tokens: PositiveInt = 1500
     """Per-question output (incl. thinking) assumed by the pre-run cost estimate."""

@@ -42,7 +42,7 @@ def _response(
             SimpleNamespace(type="text", text=text),
         ],
         usage=SimpleNamespace(input_tokens=1200, output_tokens=340),
-        model="claude-opus-5-5",
+        model="claude-sonnet-5-5",
         stop_reason=stop_reason,
     )
 
@@ -55,7 +55,7 @@ class TestAnthropic:
         )
 
         (params,) = messages.calls
-        assert params["model"] == "claude-opus-5-5"
+        assert params["model"] == "claude-sonnet-5-5"
         assert params["system"] == "sys"
         assert params["messages"] == [{"role": "user", "content": "question"}]
         assert params["output_config"] == {
@@ -66,7 +66,7 @@ class TestAnthropic:
         assert params["fallbacks"] == "default"
         assert completion.text == '{"answerable": true, "answer": "x"}'
         assert (completion.input_tokens, completion.output_tokens) == (1200, 340)
-        assert completion.model_id == "claude-opus-5-5"
+        assert completion.model_id == "claude-sonnet-5-5"
         assert not completion.refused
 
     def test_fallbacks_can_be_disabled_and_schema_is_optional(self) -> None:

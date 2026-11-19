@@ -50,7 +50,7 @@ uv run python scripts/evaluate_retrieval.py --config configs/hybrid.yaml   # abl
 uv run python scripts/evaluate_retrieval.py --config configs/rerank-bge.yaml  # ablation: + cross-encoder
 # current best: configs/pages-context.yaml (chunk + build_index with that config first)
 
-# Phase 2: answers with citations (needs ANTHROPIC_API_KEY in .env, see .env.example)
+# Phase 2: answers with citations (needs BIFROST_API_KEY in .env, see .env.example)
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --dry-run
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --limit 10
 # local model instead: install Ollama (https://ollama.com), `ollama pull llama3.1:8b`, then

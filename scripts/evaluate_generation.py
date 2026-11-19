@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n--- example prompt (system) ---\n{prompts[0].system}")
         print(f"\n--- example prompt (user, first 1500 chars) ---\n{prompts[0].user[:1500]}")
         return 0
-    if gen.provider is LLMProvider.ANTHROPIC and estimate > args.budget_usd:
+    if gen.provider is not LLMProvider.OLLAMA and estimate > args.budget_usd:
         print("estimate exceeds budget: lower --limit or raise --budget-usd explicitly")
         return 2
 

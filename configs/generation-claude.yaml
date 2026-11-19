@@ -1,4 +1,4 @@
-# Phase 2 (HLD 010): Claude (claude-opus-5-5) answers from the current default retrieval (pages-context).
+# Phase 2 (HLD 010): Claude Sonnet via Bifrost, using the current default retrieval (pages-context).
 # Retrieval settings are identical to pages-context.yaml.
 experiment_name: generation-claude
 dataset: financebench
@@ -38,13 +38,14 @@ retrieval:
     relax_order: [year, company]
 
 generation:                     # <- vs pages-context.yaml (ADR 0005, HLD 010)
-  provider: anthropic
-  model_id: claude-opus-5-5
+  provider: bifrost
+  model_id: bedrock/global.anthropic.claude-sonnet-5-5
   effort: medium
   max_tokens: 16000
   max_sources: 5
   refusal_fallbacks: true
-  pricing: {input_per_mtok: 4.0, output_per_mtok: 20.0}
+  bifrost_api_key_env: BIFROST_API_KEY
+  pricing: {input_per_mtok: 2.0, output_per_mtok: 10.0}
   expected_output_tokens: 1500
 
 evaluation:

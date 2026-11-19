@@ -6,7 +6,7 @@ from rag.config import GenerationConfig, LLMProvider
 from rag.generation.base import LLMClient
 from rag.generation.context import SourcesContextAssembler
 from rag.generation.generator import GroundedAnswerGenerator
-from rag.generation.llm_clients import AnthropicLLMClient, OllamaLLMClient
+from rag.generation.llm_clients import AnthropicLLMClient, BifrostLLMClient, OllamaLLMClient
 
 
 def build_llm_client(config: GenerationConfig) -> LLMClient:
@@ -23,6 +23,14 @@ def build_llm_client(config: GenerationConfig) -> LLMClient:
                 model=config.model_id,
                 base_url=config.ollama_url,
                 timeout_s=float(config.ollama_timeout_s),
+            )
+        case LLMProvider.BIFROST:
+            return BifrostLLMClient(
+                model=config.model_id,
+                base_url=config.bifrost_url,
+                api_key_env=config.bifrost_api_key_env,
+                max_tokens=config.max_tokens,
+                timeout_s=float(config.bifrost_timeout_s),
             )
 
 
