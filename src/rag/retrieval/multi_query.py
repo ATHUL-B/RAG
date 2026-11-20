@@ -21,6 +21,11 @@ class MultiQueryRetriever(Retriever):
     through unchanged: they were extracted from the original question by the outer
     ``FilteredRetriever``, so a rewrite cannot drop or invent one. When the rewriter
     changes nothing, this is exactly ``inner`` (no extra search, no extra latency).
+
+    Each list is labelled with its search name (``original``, ``rewrite_1``, …) before
+    fusion, so a weighted fuser can trust the original question more than the rewrites:
+    with many rewrites, agreeing sub-queries can otherwise outvote the original's correct
+    page (HLD 012, 013).
     """
 
     def __init__(
@@ -61,7 +66,12 @@ class MultiQueryRetriever(Retriever):
 
         depth = max(k, self._candidate_depth)
         results = {name: self._inner.retrieve(q, depth) for name, q in searches.items()}
-        fused = self._fuser.fuse([r.candidates for r in results.values()], k)
+        # Label each list by its search so the fuser can weight it (e.g. "original": 2.0).
+        labelled = [
+            [c.model_copy(update={"stage": name}) for c in r.candidates]
+            for name, r in results.items()
+        ]
+        fused = self._fuser.fuse(labelled, k)
         return RetrievalResult(
             candidates=tuple(fused),
             applied_filters=dict(query.filters),

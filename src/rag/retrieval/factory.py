@@ -16,7 +16,7 @@ from rag.retrieval.filters import CatalogFilterExtractor
 from rag.retrieval.fusion import ReciprocalRankFusion
 from rag.retrieval.hybrid import HybridRetriever
 from rag.retrieval.keyword import KeywordRetriever
-from rag.retrieval.multi_query import MultiQueryRetriever
+from rag.retrieval.multi_query import ORIGINAL, MultiQueryRetriever
 from rag.retrieval.rerankers import CrossEncoderReranker, SentenceTransformersPairScorer
 from rag.retrieval.reranking import RerankingRetriever
 from rag.retrieval.rewriting import CompositeRewriter, RuleBasedRewriter
@@ -71,7 +71,9 @@ def build_retriever(
         retriever = MultiQueryRetriever(
             retriever,
             CompositeRewriter(rewriters),
-            ReciprocalRankFusion(k=config.fusion.rrf_k),
+            ReciprocalRankFusion(
+                k=config.fusion.rrf_k, weights={ORIGINAL: rewrite.original_weight}
+            ),
             keep_original=rewrite.keep_original,
             candidate_depth=config.candidate_depth,
         )

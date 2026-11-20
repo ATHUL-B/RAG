@@ -104,3 +104,25 @@ def test_rewrite_time_is_recorded_with_or_without_rewrites() -> None:
             ByText({"q": ["a"], "q clean": ["a"]}), rewriter, ReciprocalRankFusion(), clock=Ticks()
         )
         assert retriever.retrieve(Query(text="q"), k=1).timings_ms == {"rewrite": 500.0}
+
+
+def test_lists_are_labelled_so_the_original_can_be_weighted() -> None:
+    # original: a first; rewrites: b first. Three agreeing rewrites outvote the original
+    # at equal weights; a higher original weight puts its page back on top.
+    inner = ByText({"q": ["a", "b"], "q 1": ["b", "a"], "q 2": ["b", "a"], "q 3": ["b", "a"]})
+    rewriter = Suffix(" 1", " 2", " 3")
+
+    def top(weight: float) -> str:
+        fuser = ReciprocalRankFusion(k=0, weights={"original": weight})
+        retriever = MultiQueryRetriever(inner, rewriter, fuser, candidate_depth=10)
+        return retriever.retrieve(Query(text="q"), k=1).candidates[0].chunk.chunk_id
+
+    assert top(1.0) == "b"
+    assert top(4.0) == "a"  # 4/1 + 3/2 = 5.5 beats 4/2 + 3/1 = 5.0
+
+
+def test_equal_weights_give_the_same_ranking_as_before_labelling() -> None:
+    inner = ByText({"q": ["a", "b"], "q clean": ["b", "c"]})
+    result = _retriever(inner, Suffix(" clean")).retrieve(Query(text="q"), k=3)
+    assert [c.chunk.chunk_id for c in result.candidates] == ["b", "a", "c"]
+    assert result.stage_candidates["original"][0].stage == "dense"  # traces keep the inner stage
