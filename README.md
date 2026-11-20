@@ -6,8 +6,9 @@ Contributor/agent guidance: `CLAUDE.md`. Design docs: `docs/` (start with
 `architecture.md` and `backlog.md`). **New here? Read
 [`docs/walkthroughs/phase-1-baseline.md`](docs/walkthroughs/phase-1-baseline.md)** for what
 was built, why, and how to read the code, then
-[`docs/walkthroughs/phase-3-improvements.md`](docs/walkthroughs/phase-3-improvements.md) for
-how retrieval was improved one measured change at a time.
+[`docs/walkthroughs/phase-3-improvements.md`](docs/walkthroughs/phase-3-improvements.md) and
+[part 2](docs/walkthroughs/phase-3-part-2-planning-and-reranking.md) for how retrieval was
+improved one measured change at a time.
 
 ## Setup
 
