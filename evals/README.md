@@ -11,6 +11,11 @@
   numeric/text. `labels-v1.jsonl` holds the blind human labels (correct/incorrect,
   faithful/unfaithful). Label with `scripts/judge_calibration.py label` (resumable);
   check with `report` (Cohen's κ vs `configs/judges.yaml: min_kappa`).
+- **Unanswerable set** (`unanswerable-v1.jsonl`, HLD 017): 26 questions with
+  `evidence: []`, tagged `unanswerable:<reason>` (company with no filings, unknown company,
+  period not covered, figure not disclosed, speculative). Verified against the document
+  catalog and a text search of the corpus. Run with
+  `scripts/evaluate_generation.py --golden evals/unanswerable-v1.jsonl`.
 - **Our own** questions live here as JSONL in the `GoldenItem` schema
   (`rag.domain.GoldenItem`), versioned in git, e.g. `custom_v1.jsonl`.
 

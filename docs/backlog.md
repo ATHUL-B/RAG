@@ -30,7 +30,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 2.1 | LLM clients (Claude, Ollama; ADR 0005), labelled-source prompt, cited structured answers, deterministic answer checks + cost guard (HLD 010). **First valid runs with a local model (HLD 015):** `working`-before-`answer` schema (1/8 → 5/8 numeric), better retrieval puts evidence in 79% of prompts but the 8B generator is now the bottleneck | 11 | done (local); Claude run pending a key |
 | 2.1a | Output-integrity checks (reject empty/trivial answers and markup leaks), raw provider response in the trace, per-question ladder-step + integrity report in the generation runner. From the first full run, where 78% of outputs were lost ([analysis](../experiments/analysis/2026-11-19-first-generation-run.md)) | 11, 13 | done (HLD 010) |
 | 2.2 | Correctness + faithfulness judges (HLD 016): qwen2.5:7b judges llama3.1:8b; rubric, reason-first, blind labelling tool, Cohen's κ. Agrees with numeric_match 90-96%. **Provisional:** 4/50 human labels; leniency on derived numbers; rubric v2 + more labels (or a Claude judge) needed before decisions rest on it | 13 | in-progress (built; calibration incomplete) |
-| 2.3 | Refusal path (done in 2.1: `answerable: false` + provider refusals) + our own unanswerable questions in `evals/` | 11, 13 | todo |
+| 2.3 | Refusal path + our own unanswerable questions (HLD 017): `evals/unanswerable-v1.jsonl` (26, 5 trap types), `correct_refusal`/`hallucinated` outcomes, refusal recall + over-refusal. llama3.1:8b: recall 1.00, 0 hallucinated; over-refusal 0.11-0.19. **Next:** near-miss traps (v2), refusal explanations | 11, 13 | done (v1) |
 
 ## Phase 3: Improve one stage at a time (each = one ablation entry)
 

@@ -40,6 +40,7 @@ class EvidenceReach(StrEnum):
     NOT_RETRIEVED = "not_retrieved"  # rung 2: query/filter/embedding/hybrid
     NOT_IN_PROMPT = "not_in_prompt"  # rung 4: context assembly dropped it
     IN_PROMPT = "in_prompt"
+    NO_EVIDENCE = "no_evidence"  # unanswerable question: the corpus holds no answer (2.3)
 
 
 class AnswerOutcome(StrEnum):
@@ -50,6 +51,8 @@ class AnswerOutcome(StrEnum):
     CORRECT = "correct"  # numeric reference matched
     WRONG = "wrong"  # numeric reference not matched
     UNSCORED = "unscored"  # answered, but the reference is text: needs a judge (2.2)
+    CORRECT_REFUSAL = "correct_refusal"  # unanswerable question, and the model refused (2.3)
+    HALLUCINATED = "hallucinated"  # unanswerable question, but the model answered anyway
 
 
 class Pricing(BaseModel):
@@ -107,6 +110,9 @@ class GenerationRunResult(BaseModel):
     error_kinds: dict[str, int] = Field(default_factory=dict)
     ladder: dict[str, dict[str, int]] = Field(default_factory=dict)
     """evidence_reach → outcome → count: where the evidence got to vs what the model did."""
+    refusal: dict[str, float] = Field(default_factory=dict)
+    """Both sides of refusal (2.3): recall on unanswerable questions, over-refusal on
+    answerable ones whose evidence was in the prompt."""
 
 
 class GenerationEvalRunner:
@@ -173,6 +179,7 @@ class GenerationEvalRunner:
             errors=len(traces) - len(ok),
             error_kinds=dict(Counter(t.error_kind for t in traces if t.error_kind)),
             ladder=_ladder(traces),
+            refusal=_refusal(traces),
         )
 
     def _run_one(self, item: GoldenItem) -> GenerationTrace:
@@ -205,8 +212,12 @@ class GenerationEvalRunner:
                 error=str(exc),
                 error_kind=exc.kind,
                 raw_output=exc.raw_output,
-                evidence_reach=self._reach(
-                    qrels, retrieved, self._evidence_in(exc.prompt_chunk_ids, candidates, item)
+                evidence_reach=(
+                    self._reach(
+                        qrels, retrieved, self._evidence_in(exc.prompt_chunk_ids, candidates, item)
+                    )
+                    if item.answerable
+                    else EvidenceReach.NO_EVIDENCE
                 ),
             )
 
@@ -240,8 +251,12 @@ class GenerationEvalRunner:
             cost_usd=self._pricing.cost(completion.input_tokens, completion.output_tokens),
             timings_ms=dict(timer.timings_ms),
             raw_output=completion.text,
-            evidence_reach=self._reach(qrels, retrieved, in_prompt),
-            outcome=_outcome(answered, numeric),
+            evidence_reach=(
+                self._reach(qrels, retrieved, in_prompt)
+                if item.answerable
+                else EvidenceReach.NO_EVIDENCE
+            ),
+            outcome=_outcome(answered, numeric, item.answerable),
         )
 
     @staticmethod
@@ -266,7 +281,9 @@ class GenerationEvalRunner:
         return EvidenceReach.IN_PROMPT
 
 
-def _outcome(answered: bool, numeric: bool | None) -> AnswerOutcome:
+def _outcome(answered: bool, numeric: bool | None, answerable: bool = True) -> AnswerOutcome:
+    if not answerable:  # refusing is the right answer (2.3)
+        return AnswerOutcome.HALLUCINATED if answered else AnswerOutcome.CORRECT_REFUSAL
     if not answered:
         return AnswerOutcome.REFUSED
     if numeric is None:
@@ -283,6 +300,27 @@ def _ladder(traces: Sequence[GenerationTrace]) -> dict[str, dict[str, int]]:
         if rows:
             table[str(reach or "unknown")] = dict(Counter(str(t.outcome) for t in rows))
     return table
+
+
+def _refusal(traces: Sequence[GenerationTrace]) -> dict[str, float]:
+    """Refusal accuracy from both sides; errors are excluded (no usable decision)."""
+    unanswerable = [t for t in traces if t.evidence_reach is EvidenceReach.NO_EVIDENCE]
+    decided = [t for t in unanswerable if t.outcome is not AnswerOutcome.ERROR]
+    with_evidence = [
+        t
+        for t in traces
+        if t.evidence_reach is EvidenceReach.IN_PROMPT and t.outcome is not AnswerOutcome.ERROR
+    ]
+    refused_ok = sum(t.outcome is AnswerOutcome.CORRECT_REFUSAL for t in decided)
+    over = sum(t.refused for t in with_evidence)
+    return {
+        "unanswerable": float(len(unanswerable)),
+        "correct_refusals": float(refused_ok),
+        "hallucinated": float(len(decided) - refused_ok),
+        "refusal_recall": refused_ok / len(decided) if decided else 0.0,
+        "answerable_with_evidence": float(len(with_evidence)),
+        "over_refusal_rate": over / len(with_evidence) if with_evidence else 0.0,
+    }
 
 
 def _numeric_check(answer: str, reference: float | None, answered: bool) -> bool | None:
