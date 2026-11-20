@@ -30,8 +30,10 @@ Baseline → best is **+0.163 recall@5, significant** (95% CI [+0.087, +0.243]).
 But after step 1, **no single step is significant on its own**: 150 questions can't
 resolve differences of about 0.03. That is the main lesson about evaluation.
 
-Current default: `configs/pages-context.yaml` (filters + page-aware contextual chunks +
-dense retrieval).
+Default at the end of part 1: `configs/pages-context.yaml` (filters + page-aware contextual
+chunks + dense retrieval). **Continued in
+[`phase-3-part-2-planning-and-reranking.md`](phase-3-part-2-planning-and-reranking.md)**:
+dev/test split, query planning and the LLM reranker (test recall@5 0.426 → 0.667).
 
 ---
 
@@ -539,5 +541,6 @@ Design records: HLD 006-009 (each ends with an *Outcome* section), ADR 0004.
 | Forward-looking questions ("expected in FY2023") | The rule-based year filter can't map intent to the previous filing | LLM query planner (3.6) |
 | Tables as text | Financial statements are flattened into number soup | Table-aware parsing (3.1) |
 
-Phase 2 (generation) comes next: with an LLM answering from the retrieved chunks, the
-evaluation can finally judge *answers*, which also addresses the incomplete-label problem.
+Part 2 ([`phase-3-part-2-planning-and-reranking.md`](phase-3-part-2-planning-and-reranking.md))
+picks these questions up: the dev/test split, query rewriting (3.6) and an LLM reranker
+that finally answers "why do rerankers hurt here?".

@@ -8,7 +8,8 @@ optional BM25/hybrid and cross-encoder reranking (Phase 3.2-3.5) (pypdf → recu
 embeddings → exact NumPy index → dense top-K), evaluated on FinanceBench with traces and
 failure-ladder status. Grounded generation with citations is in HLD 010. Guided tours:
 [`walkthroughs/phase-1-baseline.md`](walkthroughs/phase-1-baseline.md), then
-[`walkthroughs/phase-3-improvements.md`](walkthroughs/phase-3-improvements.md).
+[`walkthroughs/phase-3-improvements.md`](walkthroughs/phase-3-improvements.md), then
+[`walkthroughs/phase-3-part-2-planning-and-reranking.md`](walkthroughs/phase-3-part-2-planning-and-reranking.md).
 
 ## Pipelines
 
