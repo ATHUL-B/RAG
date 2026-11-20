@@ -12,17 +12,21 @@ from rag.config import AppConfig, RetrievalMode
 from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
 from rag.domain import GoldenItem
 from rag.evaluation.splits import SplitName, load_split, select
+from rag.generation.llm_clients import OllamaLLMClient
 from rag.indexing.factory import build_embedder, dense_index_dir
 from rag.indexing.vector_store import ExactVectorStore
 from rag.ingestion.factory import build_chunker
 from rag.retrieval.base import Retriever
 from rag.retrieval.factory import build_bm25_index, build_retriever
+from rag.retrieval.llm_planner import LLMQueryPlanner, PlanCache
 
 
 @dataclass(frozen=True)
 class RetrievalStack:
     retriever: Retriever
     store: ExactVectorStore
+    planner: LLMQueryPlanner | None = None
+    """Kept so scripts can report planner calls, cache hits and failures."""
 
 
 def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
@@ -35,9 +39,30 @@ def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
         if config.retrieval.mode is not RetrievalMode.DENSE
         else None
     )
-    retriever = build_retriever(config.retrieval, embedder, store, COMPANY_ALIASES, keyword_index)
+    planner = build_planner(config)
+    retriever = build_retriever(
+        config.retrieval, embedder, store, COMPANY_ALIASES, keyword_index, planner=planner
+    )
     embedder.embed_query("warm-up")  # load the model before any timed work
-    return RetrievalStack(retriever=retriever, store=store)
+    return RetrievalStack(retriever=retriever, store=store, planner=planner)
+
+
+def build_planner(config: AppConfig) -> LLMQueryPlanner | None:
+    """The configured LLM query planner (local Ollama model, HLD 012), or None."""
+    planner = config.retrieval.rewrite.llm_planner
+    if not planner.enabled:
+        return None
+    llm = OllamaLLMClient(
+        model=planner.model_id, base_url=planner.ollama_url, timeout_s=float(planner.timeout_s)
+    )
+    cache = (
+        PlanCache.for_model(config.paths.planner_cache_dir, planner.model_id)
+        if planner.cache
+        else None
+    )
+    return LLMQueryPlanner(
+        llm, max_sub_queries=planner.max_sub_queries, max_chars=planner.max_chars, cache=cache
+    )
 
 
 def load_golden_items(config: AppConfig, split: SplitName) -> list[GoldenItem]:

@@ -9,7 +9,7 @@ from rag.domain import Chunk
 from rag.errors import ConfigError
 from rag.indexing.base import Embedder, KeywordIndex, VectorStore
 from rag.indexing.keyword_index import BM25Index
-from rag.retrieval.base import Reranker, Retriever
+from rag.retrieval.base import QueryRewriter, Reranker, Retriever
 from rag.retrieval.dense import DenseRetriever
 from rag.retrieval.filtered import FilteredRetriever
 from rag.retrieval.filters import CatalogFilterExtractor
@@ -19,7 +19,7 @@ from rag.retrieval.keyword import KeywordRetriever
 from rag.retrieval.multi_query import MultiQueryRetriever
 from rag.retrieval.rerankers import CrossEncoderReranker, SentenceTransformersPairScorer
 from rag.retrieval.reranking import RerankingRetriever
-from rag.retrieval.rewriting import RuleBasedRewriter
+from rag.retrieval.rewriting import CompositeRewriter, RuleBasedRewriter
 
 
 def build_bm25_index(config: BM25Config, chunks: Iterable[Chunk]) -> BM25Index:
@@ -46,6 +46,7 @@ def build_retriever(
     company_aliases: Mapping[str, Iterable[str]],
     keyword_index: KeywordIndex | None = None,
     reranker: Reranker | None = None,
+    planner: QueryRewriter | None = None,
 ) -> Retriever:
     """Compose: [filters] → [reranker] → [multi-query rewrite] → first stage.
 
@@ -56,9 +57,20 @@ def build_retriever(
     retriever = _base_retriever(config, embedder, store, keyword_index)
     rewrite = config.rewrite
     if rewrite.enabled:
+        rewriters: list[QueryRewriter] = []
+        if rewrite.rules_enabled:
+            rewriters.append(
+                RuleBasedRewriter(
+                    strip=rewrite.strip_boilerplate, expand=rewrite.expand_abbreviations
+                )
+            )
+        if rewrite.llm_planner.enabled:
+            if planner is None:
+                raise ConfigError("rewrite.llm_planner is enabled but no planner was given")
+            rewriters.append(planner)
         retriever = MultiQueryRetriever(
             retriever,
-            RuleBasedRewriter(strip=rewrite.strip_boilerplate, expand=rewrite.expand_abbreviations),
+            CompositeRewriter(rewriters),
             ReciprocalRankFusion(k=config.fusion.rrf_k),
             keep_original=rewrite.keep_original,
             candidate_depth=config.candidate_depth,

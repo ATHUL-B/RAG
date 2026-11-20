@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 from typing import Any
 
@@ -11,6 +12,7 @@ from rag.generation.llm_clients import (
     REFUSAL_FALLBACK_BETA,
     AnthropicLLMClient,
     OllamaLLMClient,
+    check_ollama_model,
 )
 
 SCHEMA = {"type": "object", "properties": {}, "additionalProperties": False}
@@ -126,3 +128,21 @@ class TestOllama:
         client = OllamaLLMClient(post_json=lambda url, payload, timeout: {"error": "no model"})
         with pytest.raises(GenerationError, match="unexpected Ollama response"):
             client.complete(PROMPT)
+
+
+class TestOllamaPreflight:
+    def test_passes_when_the_model_is_pulled(self) -> None:
+        tags = {"models": [{"name": "llama3.1:8b"}, {"name": "qwen2.5:latest"}]}
+        check_ollama_model("llama3.1:8b", get_json=lambda url, t: tags)
+        check_ollama_model("qwen2.5", get_json=lambda url, t: tags)  # implicit :latest
+
+    def test_missing_model_says_how_to_pull_it(self) -> None:
+        with pytest.raises(GenerationError, match=re.escape("ollama pull llama3.1:8b")):
+            check_ollama_model("llama3.1:8b", get_json=lambda url, t: {"models": []})
+
+    def test_unreachable_server_says_how_to_install(self) -> None:
+        def down(url: str, timeout: float) -> dict[str, Any]:
+            raise GenerationError("connection refused")
+
+        with pytest.raises(GenerationError, match=re.escape("ollama.com/download")):
+            check_ollama_model("llama3.1:8b", base_url="http://localhost:11434", get_json=down)

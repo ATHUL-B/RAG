@@ -1,7 +1,13 @@
 import pytest
 
 from rag.domain import Query
-from rag.retrieval.rewriting import RuleBasedRewriter, expand_abbreviations, strip_boilerplate
+from rag.retrieval.base import QueryRewriter
+from rag.retrieval.rewriting import (
+    CompositeRewriter,
+    RuleBasedRewriter,
+    expand_abbreviations,
+    strip_boilerplate,
+)
 
 
 @pytest.mark.parametrize(
@@ -98,3 +104,18 @@ def test_rules_can_be_used_alone_but_not_both_off() -> None:
     assert RuleBasedRewriter(strip=False, expand=True).rewrite(query)[0].text.endswith("net")
     with pytest.raises(ValueError, match="at least one"):
         RuleBasedRewriter(strip=False, expand=False)
+
+
+class Fixed(QueryRewriter):
+    def __init__(self, *texts: str) -> None:
+        self._texts = texts
+
+    def rewrite(self, query: Query) -> list[Query]:
+        return [query.model_copy(update={"text": t}) for t in self._texts]
+
+
+def test_composite_runs_rewriters_in_order_without_duplicates() -> None:
+    composite = CompositeRewriter([Fixed("clean", "q"), Fixed("clean", "sub 1", "sub 2")])
+    assert [r.text for r in composite.rewrite(Query(text="q"))] == ["clean", "sub 1", "sub 2"]
+    with pytest.raises(ValueError, match="at least one"):
+        CompositeRewriter([])

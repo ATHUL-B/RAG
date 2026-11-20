@@ -138,6 +138,7 @@ def test_structural_ablations_change_one_section(name: str, base: str, section: 
         ("planner-clean.yaml", "pages-context.yaml", {"rewrite"}),
         ("planner-abbrev.yaml", "pages-context.yaml", {"rewrite"}),
         ("planner-rules.yaml", "planner-clean.yaml", {"filters", "rewrite"}),
+        ("planner-llm.yaml", "planner-rules.yaml", {"rewrite"}),
     ],
 )
 def test_planner_ablations_change_only_filters_or_rewrite(
