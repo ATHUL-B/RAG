@@ -229,3 +229,56 @@ def test_numbers_in_the_working_never_count_as_a_numeric_match() -> None:
     (trace,) = runner.run([_item("q", "$1577.00")]).traces
     assert trace.working.startswith("Capex 1,577")
     assert trace.numeric_match is False and trace.outcome is AnswerOutcome.WRONG
+
+
+def _unanswerable(item_id: str) -> GoldenItem:
+    return GoldenItem(
+        item_id=item_id,
+        question=item_id,
+        reference_answer="Not answerable from the corpus.",
+        evidence=(),
+        tags=frozenset({"type:unanswerable"}),
+    )
+
+
+def test_unanswerable_questions_score_refusal_as_correct_and_answers_as_hallucination() -> None:
+    answers: dict[str, Answer | Exception] = {
+        "refuses": Answer(text="The sources do not cover Tesla.", refused=True),
+        "invents": Answer(text="Tesla's revenue was $71 billion [S1].", cited_chunk_ids=("other",)),
+        "breaks": UnusableAnswerError("empty", "empty_answer", "", ("other",)),
+        "good": Answer(text="Capex was $1,577 million [S1].", cited_chunk_ids=("evidence",)),
+        "over": Answer(text="Not in the sources.", refused=True),
+    }
+    runner = GenerationEvalRunner(FixedRetriever(), ScriptedGenerator(answers), PRICING, depth=2)
+    result = runner.run(
+        [
+            _unanswerable("refuses"),
+            _unanswerable("invents"),
+            _unanswerable("breaks"),
+            _item("good", "$1577.00"),
+            _item("over", "$1577.00"),
+        ]
+    )
+    traces = {t.item_id: t for t in result.traces}
+    assert (traces["refuses"].evidence_reach, traces["refuses"].outcome) == (
+        EvidenceReach.NO_EVIDENCE,
+        AnswerOutcome.CORRECT_REFUSAL,
+    )
+    assert traces["invents"].outcome is AnswerOutcome.HALLUCINATED
+    assert traces["breaks"].evidence_reach is EvidenceReach.NO_EVIDENCE
+    assert traces["over"].outcome is AnswerOutcome.REFUSED
+    assert result.refusal == {
+        "unanswerable": 3.0,
+        "correct_refusals": 1.0,
+        "hallucinated": 1.0,
+        "refusal_recall": 0.5,  # the broken output is excluded: no decision was made
+        "answerable_with_evidence": 2.0,
+        "over_refusal_rate": 0.5,  # "over" refused although the evidence was in the prompt
+    }
+    assert result.ladder["no_evidence"] == {"correct_refusal": 1, "hallucinated": 1, "error": 1}
+
+
+def test_refusal_summary_is_empty_safe() -> None:
+    runner = GenerationEvalRunner(FixedRetriever(), ScriptedGenerator(ANSWERS), PRICING, depth=2)
+    refusal = runner.run([_item("good", "$1577.00")]).refusal
+    assert refusal["unanswerable"] == 0.0 and refusal["refusal_recall"] == 0.0

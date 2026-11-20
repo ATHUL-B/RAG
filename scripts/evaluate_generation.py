@@ -20,6 +20,7 @@ from pathlib import Path
 from rag.app import check_local_models, load_golden_items, load_retrieval_stack
 from rag.config import LLMProvider, load_config
 from rag.config.env import load_env_file
+from rag.datasets.golden_file import read_golden_items
 from rag.domain import Query
 from rag.errors import GenerationError
 from rag.evaluation.generation_runner import (
@@ -49,6 +50,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--budget-usd", type=float, default=1.0)
     parser.add_argument("--dry-run", action="store_true", help="estimate only, call no model")
     parser.add_argument(
+        "--golden",
+        type=Path,
+        default=None,
+        help="evaluate our own JSONL golden set (e.g. evals/unanswerable-v1.jsonl) instead",
+    )
+    parser.add_argument(
         "--split",
         type=SplitName,
         choices=list(SplitName),
@@ -61,7 +68,9 @@ def main(argv: list[str] | None = None) -> int:
 
     config = load_config(args.config)
     gen = config.generation
-    items = load_golden_items(config, args.split)[args.offset :]
+    items = read_golden_items(args.golden) if args.golden else load_golden_items(config, args.split)
+    items = items[args.offset :]
+    set_name = args.golden.stem if args.golden else str(args.split)
     items = items[: args.limit] if args.limit > 0 else items
 
     if not args.dry_run:
@@ -101,14 +110,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     result = runner.run(items)
 
-    run_id = f"{config.experiment_name}-{args.split}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    run_id = f"{config.experiment_name}-{set_name}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     out = config.paths.runs_dir / run_id
     lines = "".join(t.model_dump_json() + "\n" for t in result.traces)
     atomic_write_bytes(out / "generations.jsonl", lines.encode("utf-8"))
     summary = result.model_dump(exclude={"traces"}, mode="json")
     summary |= {
         "run_id": run_id,
-        "split": str(args.split),
+        "split": set_name,
         "config": config.model_dump(mode="json"),
     }
     atomic_write_bytes(out / "summary.json", json.dumps(summary, indent=2).encode("utf-8"))
@@ -128,16 +137,31 @@ def main(argv: list[str] | None = None) -> int:
     if result.error_kinds:
         print(f"errors by kind: {result.error_kinds}  (raw_output is in each trace)")
     print_ladder(result)
+    if (refusal := result.refusal)["unanswerable"]:
+        print(
+            f"\nrefusal: {refusal['correct_refusals']:.0f}/{refusal['unanswerable']:.0f} "
+            f"unanswerable questions refused (recall {refusal['refusal_recall']:.2f}), "
+            f"{refusal['hallucinated']:.0f} hallucinated"
+        )
+    if refusal["answerable_with_evidence"]:
+        print(
+            f"over-refusal: {refusal['over_refusal_rate']:.2f} of "
+            f"{refusal['answerable_with_evidence']:.0f} answerable questions "
+            "with the evidence in the prompt"
+        )
     print(f"\ngenerations: {out / 'generations.jsonl'}")
     return 0
 
 
 def print_ladder(result: GenerationRunResult) -> None:
     """Rows: how far the evidence got. Columns: what the model did (debugging ladder)."""
-    outcomes = [str(o) for o in AnswerOutcome]
-    print(f"\n{'evidence reach':<16}" + "".join(f"{o:>10}" for o in outcomes) + f"{'total':>8}")
+    used = {o for counts in result.ladder.values() for o in counts}
+    outcomes = [str(o) for o in AnswerOutcome if str(o) in used]  # only columns with data
+    widths = [max(len(o), 5) + 2 for o in outcomes]
+    header = "".join(f"{o:>{w}}" for o, w in zip(outcomes, widths, strict=True))
+    print(f"\n{'evidence reach':<16}{header}{'total':>8}")
     for reach, counts in result.ladder.items():
-        cells = "".join(f"{counts.get(o, 0):>10}" for o in outcomes)
+        cells = "".join(f"{counts.get(o, 0):>{w}}" for o, w in zip(outcomes, widths, strict=True))
         print(f"{reach:<16}{cells}{sum(counts.values()):>8}")
 
 
