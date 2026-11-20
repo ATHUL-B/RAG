@@ -207,6 +207,28 @@ class TestOpenAICompatible:
         assert (completion.input_tokens, completion.output_tokens) == (1500, 200)
         assert completion.model_id == "provider/gw-model"
 
+    def test_temperature_can_be_omitted_for_models_that_reject_it(self) -> None:
+        client, calls = self._client(self._reply(), temperature=None)
+        client.complete(PROMPT)
+        (call,) = calls
+        assert "temperature" not in call["payload"]
+
+    def test_no_content_error_reports_response_diagnostics(self) -> None:
+        reply = {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": None},
+                    "finish_reason": "content_filter",
+                }
+            ]
+        }
+        client, _ = self._client(reply)
+        with pytest.raises(
+            GenerationError,
+            match=r"finish_reason=content_filter, message_fields=content,role, refusal=absent",
+        ):
+            client.complete(PROMPT)
+
     @pytest.mark.parametrize(
         ("key", "header", "expected"),
         [

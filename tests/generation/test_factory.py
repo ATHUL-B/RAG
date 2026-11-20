@@ -48,6 +48,21 @@ def test_gateway_reads_url_and_key_from_the_environment(monkeypatch: pytest.Monk
     assert isinstance(build_llm_client(config), OpenAICompatibleLLMClient)
 
 
+def test_gateway_can_omit_unsupported_temperature(monkeypatch: pytest.MonkeyPatch) -> None:
+    from rag.generation.base import Prompt
+
+    monkeypatch.setenv("LLM_GATEWAY_URL", "https://gw.test/v1")
+    config = GenerationConfig(
+        provider=LLMProvider.OPENAI_COMPATIBLE,
+        model_id="gw-model",
+        gateway_temperature=None,
+    )
+    payload = build_llm_client(config).request_payload(  # type: ignore[attr-defined]
+        Prompt(system="s", user="u", chunk_ids=())
+    )
+    assert "temperature" not in payload
+
+
 def test_gateway_placeholder_model_must_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_GATEWAY_URL", "https://gw.test/v1")
     config = GenerationConfig(provider=LLMProvider.OPENAI_COMPATIBLE, model_id="<gateway-model-id>")

@@ -264,6 +264,7 @@ class OpenAICompatibleLLMClient(LLMClient):
         key_header: str = "Authorization",
         timeout_s: float = 300.0,
         max_tokens: int = 2048,
+        temperature: float | None = 0.0,
         post_json: PostJsonWithHeaders = urllib_post_json,
     ) -> None:
         if not base_url:
@@ -275,6 +276,7 @@ class OpenAICompatibleLLMClient(LLMClient):
         self._headers = _auth_headers(api_key, key_header)
         self._timeout_s = timeout_s
         self._max_tokens = max_tokens
+        self._temperature = temperature
         self._post_json = post_json
 
     @property
@@ -289,8 +291,9 @@ class OpenAICompatibleLLMClient(LLMClient):
                 {"role": "user", "content": prompt.user},
             ],
             "max_tokens": self._max_tokens,
-            "temperature": 0,
         }
+        if self._temperature is not None:
+            payload["temperature"] = self._temperature
         if prompt.response_schema is not None:
             payload["response_format"] = {
                 "type": "json_schema",
@@ -323,7 +326,13 @@ class OpenAICompatibleLLMClient(LLMClient):
         content = message.get("content")
         if content is None:
             kind = "tool_calls instead of content" if message.get("tool_calls") else "no content"
-            raise GenerationError(f"gateway returned {kind}")
+            fields = ",".join(sorted(str(key) for key in message)) or "none"
+            finish_reason = str(choice.get("finish_reason") or "unknown")
+            refusal = "present" if message.get("refusal") else "absent"
+            raise GenerationError(
+                f"gateway returned {kind} (finish_reason={finish_reason}, "
+                f"message_fields={fields}, refusal={refusal})"
+            )
         return Completion(text=str(content), **common)
 
 

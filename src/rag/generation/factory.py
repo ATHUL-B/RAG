@@ -38,6 +38,7 @@ def build_llm_client(config: GenerationConfig) -> LLMClient:
                 key_header=config.gateway_key_header,
                 timeout_s=float(config.gateway_timeout_s),
                 max_tokens=config.max_tokens,
+                temperature=config.gateway_temperature,
             )
         case LLMProvider.OLLAMA:
             return OllamaLLMClient(
