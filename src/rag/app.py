@@ -6,13 +6,14 @@ exactly the same way for a given config.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
-from rag.config import AppConfig, RerankerKind, RetrievalMode
+from rag.config import AppConfig, LLMProvider, RerankerKind, RetrievalMode
 from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
 from rag.domain import GoldenItem
 from rag.evaluation.splits import SplitName, load_split, select
-from rag.generation.llm_clients import OllamaLLMClient
+from rag.generation.llm_clients import OllamaLLMClient, check_ollama_model
 from rag.indexing.factory import build_embedder, dense_index_dir
 from rag.indexing.vector_store import ExactVectorStore
 from rag.ingestion.factory import build_chunker
@@ -20,6 +21,8 @@ from rag.retrieval.base import Retriever
 from rag.retrieval.factory import build_bm25_index, build_retriever
 from rag.retrieval.llm_planner import LLMQueryPlanner, PlanCache, plan_schema
 from rag.retrieval.llm_reranker import GradeCache, LLMPointwiseReranker
+
+ModelCheck = Callable[[str, str], None]
 
 
 @dataclass(frozen=True)
@@ -106,3 +109,27 @@ def load_golden_items(config: AppConfig, split: SplitName) -> list[GoldenItem]:
     if split is SplitName.ALL:
         return items
     return select(items, load_split(config.evaluation.split_file), split)
+
+
+def local_models(config: AppConfig) -> list[tuple[str, str]]:
+    """(model, Ollama URL) for every local model this config needs: planner, reranker, generator."""
+    needed: list[tuple[str, str]] = []
+    planner = config.retrieval.rewrite.llm_planner
+    if planner.enabled:
+        needed.append((planner.model_id, planner.ollama_url))
+    rerank = config.retrieval.rerank
+    if rerank.enabled and rerank.kind is RerankerKind.LLM:
+        needed.append((rerank.llm.model_id, rerank.llm.ollama_url))
+    if config.generation.provider is LLMProvider.OLLAMA:
+        needed.append((config.generation.model_id, config.generation.ollama_url))
+    return list(dict.fromkeys(needed))
+
+
+def check_local_models(config: AppConfig, check: ModelCheck = check_ollama_model) -> None:
+    """Fail fast (``GenerationError``) if a needed local model is missing.
+
+    A missing model otherwise turns every LLM step into a silent fallback, and the run
+    looks like a genuine result.
+    """
+    for model_id, url in local_models(config):
+        check(model_id, url)

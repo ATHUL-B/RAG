@@ -271,6 +271,9 @@ class GenerationConfig(StrictConfig):
     """Claude only: server-side fallback when a request is declined."""
     ollama_url: str = "http://localhost:11434"
     ollama_timeout_s: PositiveInt = 300
+    ollama_context_tokens: PositiveInt = 8192
+    """Ollama ``num_ctx``. Its default is small and truncates long prompts from the FRONT,
+    which is where the grounding rules live. Dev prompts are at most ~2.4k tokens."""
     pricing: PricingConfig = PricingConfig()
     expected_output_tokens: PositiveInt = 1500
     """Per-question output (incl. thinking) assumed by the pre-run cost estimate."""

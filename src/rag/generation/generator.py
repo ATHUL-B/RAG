@@ -76,8 +76,8 @@ class GroundedAnswerGenerator(AnswerGenerator):
                 answer=answer, completion=completion, prompt_chunk_ids=prompt.chunk_ids
             )
 
-        answerable, text = _parse(completion, prompt)
-        labels = extract_citations(text)
+        answerable, text, working = _parse(completion, prompt)
+        labels = extract_citations(f"{working}\n{text}")  # inputs are cited in the working
         cited = tuple(
             prompt.source_labels[label] for label in labels if label in prompt.source_labels
         )
@@ -87,28 +87,36 @@ class GroundedAnswerGenerator(AnswerGenerator):
             completion=completion,
             prompt_chunk_ids=prompt.chunk_ids,
             invalid_citations=invalid,
+            working=working,
         )
 
 
-def _parse(completion: Completion, prompt: Prompt) -> tuple[bool, str]:
-    """Read ``{"answerable", "answer"}`` and check the answer is usable.
+def _parse(completion: Completion, prompt: Prompt) -> tuple[bool, str, str]:
+    """Read ``{"answerable", "working", "answer"}`` and check the answer is usable.
+
+    ``working`` comes first in the schema so a model writes the line items and arithmetic
+    *before* committing to a number: on 8 dev questions llama3.1:8b went from 1/8 to 5/8
+    numeric matches (HLD 015). Only ``answer`` is scored; ``working`` is kept separately so
+    its input numbers can never count as a "match".
 
     Plain text is accepted when no schema was set. Every failure raises
     ``UnusableAnswerError`` with the raw output, so it is counted and inspectable, never
     silently scored as an answer or a refusal.
     """
+    working = ""
     if prompt.response_schema is None:
         answerable, text = True, completion.text.strip()
     else:
         try:
             data = json.loads(completion.text)
             answerable, text = bool(data["answerable"]), str(data["answer"]).strip()
+            working = str(data.get("working", "")).strip()
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             raise _unusable(completion, prompt, SCHEMA_MISMATCH) from exc
     problem = answer_problem(text)
     if problem is not None:
         raise _unusable(completion, prompt, problem)
-    return answerable, text
+    return answerable, text, working
 
 
 def _unusable(completion: Completion, prompt: Prompt, kind: str) -> UnusableAnswerError:

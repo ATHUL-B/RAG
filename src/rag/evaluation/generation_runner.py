@@ -72,6 +72,8 @@ class GenerationTrace(BaseModel):
     evidence_units: list[str]
     prompt_chunk_ids: list[str] = Field(default_factory=list)
     answer: str = ""
+    working: str = ""
+    """Worked steps before the answer; never scored by numeric_match."""
     refused: bool = False
     provider_refused: bool = False
     model_id: str = ""
@@ -219,6 +221,7 @@ class GenerationEvalRunner:
             **base,
             prompt_chunk_ids=list(result.prompt_chunk_ids),
             answer=answer.text,
+            working=result.working,
             refused=answer.refused,
             provider_refused=completion.refused,
             model_id=completion.model_id,

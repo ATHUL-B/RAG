@@ -27,7 +27,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 | # | Item | Guide | Status |
 | --- | --- | --- | --- |
-| 2.1 | LLM clients (Claude, Ollama; ADR 0005), labelled-source prompt, cited structured answers, deterministic answer checks + cost guard (HLD 010) | 11 | in-progress (code done; first full run invalidated by a transport bug, see 2.1a) |
+| 2.1 | LLM clients (Claude, Ollama; ADR 0005), labelled-source prompt, cited structured answers, deterministic answer checks + cost guard (HLD 010). **First valid runs with a local model (HLD 015):** `working`-before-`answer` schema (1/8 → 5/8 numeric), better retrieval puts evidence in 79% of prompts but the 8B generator is now the bottleneck | 11 | done (local); Claude run pending a key |
 | 2.1a | Output-integrity checks (reject empty/trivial answers and markup leaks), raw provider response in the trace, per-question ladder-step + integrity report in the generation runner. From the first full run, where 78% of outputs were lost ([analysis](../experiments/analysis/2026-11-19-first-generation-run.md)) | 11, 13 | done (HLD 010) |
 | 2.2 | Correctness + faithfulness judges; calibrate on ~50 hand-labelled answers | 13 | todo |
 | 2.3 | Refusal path (done in 2.1: `answerable: false` + provider refusals) + our own unanswerable questions in `evals/` | 11, 13 | todo |
@@ -54,6 +54,12 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 4.4 | Cross-check retrieval code on BEIR (SciFact, FiQA) against published nDCG@10 | 13 | todo |
 
 ## Discovered / unscheduled
+
+- **Generation (HLD 015):** citations land in `working`, almost never in `answer`; add a
+  check (or prompt rule) for cited answers. Repetition loops inside `working` truncate the
+  JSON (4-6 errors per run): add `maxLength` on the Ollama path. Error traces record 0
+  tokens because usage is lost when parsing fails. Scale errors (thousands vs millions)
+  are the commonest wrong-number cause: consider a units rule in the prompt.
 
 - ~~**Priority after 3.6:** rerank the fused pool.~~ **Done (HLD 014):** local LLM
   pointwise reranker, dev 0.583 → 0.740, test 0.546 → 0.667 (both significant);
