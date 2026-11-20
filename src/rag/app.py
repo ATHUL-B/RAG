@@ -9,7 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from rag.config import AppConfig, RetrievalMode
-from rag.datasets.financebench import COMPANY_ALIASES
+from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
+from rag.domain import GoldenItem
+from rag.evaluation.splits import SplitName, load_split, select
 from rag.indexing.factory import build_embedder, dense_index_dir
 from rag.indexing.vector_store import ExactVectorStore
 from rag.ingestion.factory import build_chunker
@@ -36,3 +38,11 @@ def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
     retriever = build_retriever(config.retrieval, embedder, store, COMPANY_ALIASES, keyword_index)
     embedder.embed_query("warm-up")  # load the model before any timed work
     return RetrievalStack(retriever=retriever, store=store)
+
+
+def load_golden_items(config: AppConfig, split: SplitName) -> list[GoldenItem]:
+    """The golden questions of one split (dev by default in the scripts; see splits.py)."""
+    items = FinanceBenchDataset(config.paths.raw_dir / "financebench").golden_items()
+    if split is SplitName.ALL:
+        return items
+    return select(items, load_split(config.evaluation.split_file), split)

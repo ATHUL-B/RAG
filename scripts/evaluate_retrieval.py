@@ -1,7 +1,7 @@
 """Evaluate dense retrieval on the FinanceBench golden set (HLD 005).
 
 Usage:
-    uv run python scripts/evaluate_retrieval.py --config configs/baseline.yaml
+    uv run python scripts/evaluate_retrieval.py --config configs/baseline.yaml [--split dev]
 
 Writes runs/<run_id>/traces.jsonl and runs/<run_id>/metrics.json.
 """
@@ -14,15 +14,15 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from rag.app import load_retrieval_stack
+from rag.app import load_golden_items, load_retrieval_stack
 from rag.config import load_config
-from rag.datasets.financebench import FinanceBenchDataset
 from rag.evaluation.retrieval_report import OVERALL, RetrievalEvaluator
 from rag.evaluation.retrieval_runner import (
     RetrievalEvalRunner,
     doc_metadata_from_chunks,
     indexed_units,
 )
+from rag.evaluation.splits import SplitName
 from rag.storage import atomic_write_bytes
 
 SHOWN_METRICS = (
@@ -40,12 +40,19 @@ SHOWN_METRICS = (
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--config", type=Path, default=Path("configs/baseline.yaml"))
+    parser.add_argument(
+        "--split",
+        type=SplitName,
+        choices=list(SplitName),
+        default=SplitName.DEV,
+        help="dev (default, for tuning), test (held out: confirm, never tune) or all",
+    )
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
     stack = load_retrieval_stack(config)
     store = stack.store
-    items = FinanceBenchDataset(config.paths.raw_dir / "financebench").golden_items()
+    items = load_golden_items(config, args.split)
     top_k = config.retrieval.top_k
     runner = RetrievalEvalRunner(
         retriever=stack.retriever,
@@ -56,12 +63,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     result = runner.run(items)
 
-    run_id = f"{config.experiment_name}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    run_id = f"{config.experiment_name}-{args.split}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     out = config.paths.runs_dir / run_id
     traces = "".join(t.model_dump_json() + "\n" for t in result.traces)
     atomic_write_bytes(out / "traces.jsonl", traces.encode("utf-8"))
     summary = result.model_dump(exclude={"traces"}, mode="json")
-    summary |= {"run_id": run_id, "config": config.model_dump(mode="json")}
+    summary |= {
+        "run_id": run_id,
+        "split": str(args.split),
+        "config": config.model_dump(mode="json"),
+    }
     atomic_write_bytes(out / "metrics.json", _json(summary))
 
     names = [m.format(k=top_k) for m in SHOWN_METRICS]

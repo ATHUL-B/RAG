@@ -2,7 +2,7 @@
 
 Usage:
     uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml \
-        [--limit 10] [--offset 0] [--budget-usd 1.0] [--dry-run]
+        [--split dev] [--limit 10] [--offset 0] [--budget-usd 1.0] [--dry-run]
 
 Paid providers cost money: the script estimates the cost first and stops if the estimate
 exceeds --budget-usd. --dry-run prints the estimate and one assembled prompt without
@@ -17,10 +17,9 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from rag.app import load_retrieval_stack
+from rag.app import load_golden_items, load_retrieval_stack
 from rag.config import LLMProvider, load_config
 from rag.config.env import load_env_file
-from rag.datasets.financebench import FinanceBenchDataset
 from rag.domain import Query
 from rag.evaluation.generation_runner import (
     AnswerOutcome,
@@ -31,6 +30,7 @@ from rag.evaluation.generation_runner import (
 )
 from rag.evaluation.retrieval_report import OVERALL
 from rag.evaluation.retrieval_runner import indexed_units
+from rag.evaluation.splits import SplitName
 from rag.generation.context import SourcesContextAssembler
 from rag.generation.factory import build_generator
 from rag.ingestion.tokenization import TiktokenCounter
@@ -47,14 +47,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--budget-usd", type=float, default=1.0)
     parser.add_argument("--dry-run", action="store_true", help="estimate only, call no model")
+    parser.add_argument(
+        "--split",
+        type=SplitName,
+        choices=list(SplitName),
+        default=SplitName.DEV,
+        help="dev (default, for tuning), test (held out: confirm, never tune) or all",
+    )
     args = parser.parse_args(argv)
     configure_logging("WARNING")
     load_env_file()
 
     config = load_config(args.config)
     gen = config.generation
-    items = FinanceBenchDataset(config.paths.raw_dir / "financebench").golden_items()
-    items = items[args.offset :]
+    items = load_golden_items(config, args.split)[args.offset :]
     items = items[: args.limit] if args.limit > 0 else items
 
     stack = load_retrieval_stack(config)
@@ -88,12 +94,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     result = runner.run(items)
 
-    run_id = f"{config.experiment_name}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+    run_id = f"{config.experiment_name}-{args.split}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
     out = config.paths.runs_dir / run_id
     lines = "".join(t.model_dump_json() + "\n" for t in result.traces)
     atomic_write_bytes(out / "generations.jsonl", lines.encode("utf-8"))
     summary = result.model_dump(exclude={"traces"}, mode="json")
-    summary |= {"run_id": run_id, "config": config.model_dump(mode="json")}
+    summary |= {
+        "run_id": run_id,
+        "split": str(args.split),
+        "config": config.model_dump(mode="json"),
+    }
     atomic_write_bytes(out / "summary.json", json.dumps(summary, indent=2).encode("utf-8"))
 
     totals = result.totals

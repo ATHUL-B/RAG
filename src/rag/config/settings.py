@@ -160,6 +160,8 @@ class EvaluationConfig(StrictConfig):
     """Cut-offs for recall@K, precision@K, hit@K and nDCG@K."""
     parse_audit_min_coverage: float = Field(default=0.8, ge=0.0, le=1.0)
     """Evidence passes the parse audit when this share of its tokens is on the parsed page."""
+    split_file: Path = Path("evals/financebench-split.json")
+    """Committed dev/test split (``scripts/make_split.py``); scripts default to ``dev``."""
 
 
 class LLMProvider(StrEnum):
