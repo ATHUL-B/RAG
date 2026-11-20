@@ -65,6 +65,20 @@ evaluated.
 | 5. In the prompt, output lost (transport) | ~50 | Not measurable until section 1 is fixed |
 | 5. In the prompt, intact answer | 13 | 13/13 correct and cited |
 
+## Follow-up: the same run replayed through the 2.1a checks
+
+Replaying the saved answers offline through the new usability checks and ladder report
+(no API calls) flags **114** answers rather than the 111 counted above. The difference is
+the 3 `<![CDATA[`-wrapped answers: their text was correct, but the wrapper is a transport
+leak, so they are now errors too. Together with the 6 schema breaks:
+
+| Evidence reach | error | refused | correct | wrong | unscored | total |
+| --- | --- | --- | --- | --- | --- | --- |
+| not_retrieved | 62 | 13 | 0 | 2 | 4 | 81 |
+| in_prompt | 58 | 0 | 4 | 0 | 7 | 69 |
+
+Error kinds: 51 `bare_boolean`, 46 `empty_answer`, 17 `markup_leak`, 6 `schema_mismatch`.
+
 ## Lessons (feed into the backlog)
 
 1. **Validate usability, not just schema:** reject empty or trivial answers and markup
