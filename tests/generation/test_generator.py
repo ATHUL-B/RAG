@@ -166,3 +166,22 @@ def test_plain_text_is_accepted_without_a_schema() -> None:
     generator = GroundedAnswerGenerator(NoSchema(), ScriptedLLM("Capex was 1577 [S1]"))
     result = generator.generate(Query(text="q"), _candidates())
     assert result.answer.cited_chunk_ids == ("c1",)
+
+
+def test_working_is_kept_separately_and_its_citations_count() -> None:
+    reply = json.dumps(
+        {
+            "answerable": True,
+            "working": "Revenue 100 [S1]; PP&E avg 50 [S3]; 100 / 50 = 2.0",
+            "answer": "The fixed asset turnover ratio is 2.0.",
+        }
+    )
+    result = _generate(ScriptedLLM(reply))
+    assert result.answer.text == "The fixed asset turnover ratio is 2.0."
+    assert result.working.startswith("Revenue 100 [S1]")
+    assert result.answer.cited_chunk_ids == ("c1", "c3")  # cited in the working
+
+
+def test_working_is_optional_for_older_replies() -> None:
+    result = _generate(ScriptedLLM(_json(True, "Capex $1,577M [S2].")))
+    assert result.working == ""

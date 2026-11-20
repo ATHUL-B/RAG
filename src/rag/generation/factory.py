@@ -23,6 +23,8 @@ def build_llm_client(config: GenerationConfig) -> LLMClient:
                 model=config.model_id,
                 base_url=config.ollama_url,
                 timeout_s=float(config.ollama_timeout_s),
+                max_output_tokens=config.max_tokens,
+                context_tokens=config.ollama_context_tokens,
             )
 
 

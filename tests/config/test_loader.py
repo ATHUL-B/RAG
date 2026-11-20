@@ -172,3 +172,12 @@ def test_weight_ablations_change_only_the_original_weight(name: str, weight: flo
     after = load_config(REPO_ROOT / "configs" / f"planner-llm-{name}.yaml").retrieval.rewrite
     assert after.original_weight == weight
     assert after.model_copy(update={"original_weight": 1.0}) == before
+
+
+def test_best_generation_config_only_swaps_in_the_best_retrieval() -> None:
+    plain = load_config(REPO_ROOT / "configs" / "generation-ollama.yaml")
+    best = load_config(REPO_ROOT / "configs" / "generation-ollama-best.yaml")
+    retrieval = load_config(REPO_ROOT / "configs" / "planner-llm-rerank-llm.yaml").retrieval
+    assert best.retrieval == retrieval
+    same = {"experiment_name": "x", "retrieval": None}
+    assert plain.model_copy(update=same) == best.model_copy(update=same)

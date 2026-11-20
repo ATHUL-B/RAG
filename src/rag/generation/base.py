@@ -48,6 +48,8 @@ class GenerationResult(BaseModel):
     prompt_chunk_ids: tuple[str, ...]
     invalid_citations: tuple[str, ...] = ()
     """Citation labels in the answer that match no source shown (e.g. "S9")."""
+    working: str = ""
+    """The model's worked steps (line items, values, formula), shown before the answer."""
 
 
 class LLMClient(ABC):

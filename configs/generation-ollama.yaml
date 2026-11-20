@@ -49,6 +49,8 @@ generation:                     # <- vs generation-claude.yaml: local model via 
   max_sources: 5
   ollama_url: http://localhost:11434
   ollama_timeout_s: 300
+  ollama_context_tokens: 8192    # explicit: Ollama silently truncates beyond its default
+  max_tokens: 1024               # num_predict: a looping answer stops instead of running on
   pricing: {input_per_mtok: 0.0, output_per_mtok: 0.0}
   expected_output_tokens: 500
 

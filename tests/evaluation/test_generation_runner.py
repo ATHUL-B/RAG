@@ -213,3 +213,19 @@ def test_unusable_answers_keep_kind_raw_output_and_prompt_reach() -> None:
     assert traces["hidden"].evidence_reach is EvidenceReach.NOT_IN_PROMPT
     assert result.error_kinds == {"empty_answer": 1, "markup_leak": 1}
     assert result.errors == 2 and result.report is None
+
+
+class WithWorking(ScriptedGenerator):
+    def generate(self, query: Query, chunks: Sequence[ScoredChunk]) -> GenerationResult:
+        result = super().generate(query, chunks)
+        return result.model_copy(update={"working": "Capex 1,577 [S1] (the reference value)"})
+
+
+def test_numbers_in_the_working_never_count_as_a_numeric_match() -> None:
+    answers: dict[str, Answer | Exception] = {
+        "q": Answer(text="Capex was 1,373 million [S1].", cited_chunk_ids=("evidence",))
+    }
+    runner = GenerationEvalRunner(FixedRetriever(), WithWorking(answers), PRICING, depth=2)
+    (trace,) = runner.run([_item("q", "$1577.00")]).traces
+    assert trace.working.startswith("Capex 1,577")
+    assert trace.numeric_match is False and trace.outcome is AnswerOutcome.WRONG

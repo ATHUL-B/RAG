@@ -56,3 +56,11 @@ def test_compact_collapses_table_whitespace() -> None:
 def test_rejects_invalid_max_sources() -> None:
     with pytest.raises(ValueError, match="max_sources"):
         SourcesContextAssembler(max_sources=0)
+
+
+def test_schema_asks_for_working_before_the_answer() -> None:
+    properties = list(ANSWER_SCHEMA["properties"])
+    assert properties.index("working") < properties.index("answer")
+    assert ANSWER_SCHEMA["required"] == ["answerable", "working", "answer"]
+    system = SourcesContextAssembler().assemble(Query(text="q"), []).system
+    assert 'Work it out in "working" before writing "answer"' in system

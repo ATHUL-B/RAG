@@ -14,8 +14,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from rag.app import load_golden_items, load_retrieval_stack
-from rag.config import RerankerKind, load_config
+from rag.app import check_local_models, load_golden_items, load_retrieval_stack
+from rag.config import load_config
 from rag.errors import GenerationError
 from rag.evaluation.retrieval_report import OVERALL, RetrievalEvaluator
 from rag.evaluation.retrieval_runner import (
@@ -24,7 +24,6 @@ from rag.evaluation.retrieval_runner import (
     indexed_units,
 )
 from rag.evaluation.splits import SplitName
-from rag.generation.llm_clients import check_ollama_model
 from rag.storage import atomic_write_bytes
 
 SHOWN_METRICS = (
@@ -52,17 +51,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
-    planner_config = config.retrieval.rewrite.llm_planner
-    rerank = config.retrieval.rerank
-    local_models = [(planner_config.model_id, planner_config.ollama_url)] * planner_config.enabled
-    if rerank.enabled and rerank.kind is RerankerKind.LLM:
-        local_models.append((rerank.llm.model_id, rerank.llm.ollama_url))
-    for model_id, url in local_models:
-        try:
-            check_ollama_model(model_id, url)
-        except GenerationError as exc:
-            print(f"local model unavailable: {exc}")
-            return 2
+    try:
+        check_local_models(config)
+    except GenerationError as exc:
+        print(f"local model unavailable: {exc}")
+        return 2
     stack = load_retrieval_stack(config)
     store = stack.store
     items = load_golden_items(config, args.split)

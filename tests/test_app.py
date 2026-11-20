@@ -1,9 +1,11 @@
 from pathlib import Path
 
-from rag.app import build_llm_reranker, build_planner
+from rag.app import build_llm_reranker, build_planner, check_local_models, local_models
 from rag.config import (
     AppConfig,
+    GenerationConfig,
     LLMPlannerConfig,
+    LLMProvider,
     RerankConfig,
     RerankerKind,
     RetrievalConfig,
@@ -45,3 +47,21 @@ def test_llm_reranker_only_for_enabled_llm_kind(tmp_path: Path) -> None:
     assert build_llm_reranker(config(True, RerankerKind.CROSS_ENCODER)) is None
     reranker = build_llm_reranker(config(True, RerankerKind.LLM))
     assert isinstance(reranker, LLMPointwiseReranker) and reranker.calls == 0
+
+
+def test_local_models_lists_every_ollama_dependency_once() -> None:
+    assert local_models(AppConfig(experiment_name="x")) == []
+    rewrite = RewriteConfig(llm_planner=LLMPlannerConfig(enabled=True))
+    rerank = RerankConfig(enabled=True, kind=RerankerKind.LLM)
+    config = AppConfig(
+        experiment_name="x",
+        retrieval=RetrievalConfig(rewrite=rewrite, rerank=rerank),
+        generation=GenerationConfig(provider=LLMProvider.OLLAMA, model_id="qwen2.5:7b"),
+    )
+    assert local_models(config) == [
+        ("llama3.1:8b", "http://localhost:11434"),  # planner and reranker share it: once
+        ("qwen2.5:7b", "http://localhost:11434"),
+    ]
+    checked: list[tuple[str, str]] = []
+    check_local_models(config, check=lambda model, url: checked.append((model, url)))
+    assert checked == local_models(config)

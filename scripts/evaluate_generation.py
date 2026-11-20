@@ -17,10 +17,11 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from rag.app import load_golden_items, load_retrieval_stack
+from rag.app import check_local_models, load_golden_items, load_retrieval_stack
 from rag.config import LLMProvider, load_config
 from rag.config.env import load_env_file
 from rag.domain import Query
+from rag.errors import GenerationError
 from rag.evaluation.generation_runner import (
     AnswerOutcome,
     GenerationEvalRunner,
@@ -63,6 +64,12 @@ def main(argv: list[str] | None = None) -> int:
     items = load_golden_items(config, args.split)[args.offset :]
     items = items[: args.limit] if args.limit > 0 else items
 
+    if not args.dry_run:
+        try:
+            check_local_models(config)
+        except GenerationError as exc:
+            print(f"local model unavailable: {exc}")
+            return 2
     stack = load_retrieval_stack(config)
     pricing = Pricing(
         input_per_mtok=gen.pricing.input_per_mtok, output_per_mtok=gen.pricing.output_per_mtok
