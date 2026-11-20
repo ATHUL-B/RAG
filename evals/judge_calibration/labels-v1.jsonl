@@ -1,0 +1,4 @@
+{"key": "generation-ollama-best-dev-20261120T100750Z:financebench_id_04980", "correctness": "incorrect", "faithfulness": "unfaithful", "note": "The value was not correct in the model response"}
+{"key": "generation-ollama-best-dev-20261120T100750Z:financebench_id_00790", "correctness": "incorrect", "faithfulness": "unfaithful", "note": ""}
+{"key": "generation-ollama-best-dev-20261120T100750Z:financebench_id_00283", "correctness": "incorrect", "faithfulness": "unfaithful", "note": ""}
+{"key": "generation-ollama-best-dev-20261120T100750Z:financebench_id_01484", "correctness": "incorrect", "faithfulness": "unfaithful", "note": ""}

@@ -50,6 +50,11 @@ class PathsConfig(StrictConfig):
         return self.processed_dir / "parsed"
 
     @property
+    def judge_cache_dir(self) -> Path:
+        """Cached judge verdicts (HLD 016); safe to delete."""
+        return self.data_dir / "cache" / "judges"
+
+    @property
     def rerank_cache_dir(self) -> Path:
         """Cached LLM rerank grades (HLD 014); safe to delete."""
         return self.data_dir / "cache" / "rerank"
@@ -181,6 +186,20 @@ class FusionConfig(StrictConfig):
     rrf_k: NonNegativeInt = 60
     """RRF constant: small k rewards top ranks, large k rewards agreement across lists."""
     weights: dict[str, float] = Field(default_factory=lambda: {"dense": 1.0, "bm25": 1.0})
+
+
+class JudgeConfig(StrictConfig):
+    """LLM judges for answers (HLD 016). Default: a different family from the generator."""
+
+    model_id: str = Field(default="qwen2.5:7b", min_length=1)
+    ollama_url: str = "http://localhost:11434"
+    timeout_s: PositiveInt = 120
+    context_tokens: PositiveInt = 8192
+    """Faithfulness prompts carry the 5 sources (~2.4k tokens) plus the answer."""
+    max_output_tokens: PositiveInt = 300
+    cache: bool = True
+    min_kappa: float = Field(default=0.6, ge=-1.0, le=1.0)
+    """Acceptance bar vs hand labels, fixed before calibrating."""
 
 
 class RerankerKind(StrEnum):

@@ -63,6 +63,8 @@ uv run python scripts/evaluate_generation.py --config configs/generation-claude.
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --limit 10
 # local model instead: install Ollama (https://ollama.com), `ollama pull llama3.1:8b`, then
 uv run python scripts/evaluate_generation.py --config configs/generation-ollama.yaml --limit 10
+uv run python scripts/judge_generations.py runs/<generation-run>   # 2.2: correctness + faithfulness judges (needs `ollama pull qwen2.5:7b`)
+uv run python scripts/judge_calibration.py label    # blind hand labels; then `report` for Cohen's kappa
 uv run python scripts/compare_runs.py runs/<a> runs/<b>   # per-question diff + 95% bootstrap CI
 ```
 

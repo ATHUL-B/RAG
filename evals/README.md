@@ -6,6 +6,11 @@
   test). It is grouped by company (all of a company's questions are on one side) and
   balanced by question type x single/multi evidence. Made once by
   `scripts/make_split.py` (seed 0, fixed in advance). Tune on dev, confirm on test.
+- **Judge calibration** (`judge_calibration/`): `sample-v1.jsonl` is 50 generated answers
+  (question, reference, answer, working, sources) stratified by run × evidence reach ×
+  numeric/text. `labels-v1.jsonl` holds the blind human labels (correct/incorrect,
+  faithful/unfaithful). Label with `scripts/judge_calibration.py label` (resumable);
+  check with `report` (Cohen's κ vs `configs/judges.yaml: min_kappa`).
 - **Our own** questions live here as JSONL in the `GoldenItem` schema
   (`rag.domain.GoldenItem`), versioned in git, e.g. `custom_v1.jsonl`.
 
