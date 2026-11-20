@@ -139,6 +139,9 @@ def test_structural_ablations_change_one_section(name: str, base: str, section: 
         ("planner-abbrev.yaml", "pages-context.yaml", {"rewrite"}),
         ("planner-rules.yaml", "planner-clean.yaml", {"filters", "rewrite"}),
         ("planner-llm.yaml", "planner-rules.yaml", {"rewrite"}),
+        ("planner-llm-w1-5.yaml", "planner-llm.yaml", {"rewrite"}),
+        ("planner-llm-w2.yaml", "planner-llm.yaml", {"rewrite"}),
+        ("planner-llm-w3.yaml", "planner-llm.yaml", {"rewrite"}),
     ],
 )
 def test_planner_ablations_change_only_filters_or_rewrite(
@@ -159,3 +162,11 @@ def test_generation_configs_reuse_the_default_retrieval(name: str) -> None:
     generation = load_config(REPO_ROOT / "configs" / name)
     same = {"experiment_name": "x", "generation": None}
     assert default.model_copy(update=same) == generation.model_copy(update=same)
+
+
+@pytest.mark.parametrize(("name", "weight"), [("w1-5", 1.5), ("w2", 2.0), ("w3", 3.0)])
+def test_weight_ablations_change_only_the_original_weight(name: str, weight: float) -> None:
+    before = load_config(REPO_ROOT / "configs" / "planner-llm.yaml").retrieval.rewrite
+    after = load_config(REPO_ROOT / "configs" / f"planner-llm-{name}.yaml").retrieval.rewrite
+    assert after.original_weight == weight
+    assert after.model_copy(update={"original_weight": 1.0}) == before

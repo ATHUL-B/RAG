@@ -146,6 +146,8 @@ class RewriteConfig(StrictConfig):
     """Append spelled-out names of finance abbreviations (PP&E, COGS, ...)."""
     keep_original: bool = True
     """Also search the original question and fuse with RRF (Part 7, rule 1)."""
+    original_weight: float = Field(default=1.0, gt=0.0)
+    """RRF weight of the original question's list; every rewrite list has weight 1 (HLD 013)."""
     llm_planner: LLMPlannerConfig = LLMPlannerConfig()
 
     @property
