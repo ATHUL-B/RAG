@@ -260,6 +260,7 @@ class EvaluationConfig(StrictConfig):
 class LLMProvider(StrEnum):
     ANTHROPIC = "anthropic"
     OLLAMA = "ollama"
+    OPENAI_COMPATIBLE = "openai_compatible"
 
 
 class Effort(StrEnum):
@@ -293,6 +294,12 @@ class GenerationConfig(StrictConfig):
     ollama_context_tokens: PositiveInt = 8192
     """Ollama ``num_ctx``. Its default is small and truncates long prompts from the FRONT,
     which is where the grounding rules live. Dev prompts are at most ~2.4k tokens."""
+    gateway_url_env: str = "LLM_GATEWAY_URL"
+    """openai_compatible: env var holding the base URL (ends in /v1). Never in configs."""
+    gateway_key_env: str = "LLM_GATEWAY_KEY"
+    gateway_key_header: str = "Authorization"
+    """Header the key goes in: ``Authorization`` (Bearer) or a gateway's own, e.g. ``x-bf-vk``."""
+    gateway_timeout_s: PositiveInt = 300
     pricing: PricingConfig = PricingConfig()
     expected_output_tokens: PositiveInt = 1500
     """Per-question output (incl. thinking) assumed by the pre-run cost estimate."""

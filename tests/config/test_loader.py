@@ -181,3 +181,11 @@ def test_best_generation_config_only_swaps_in_the_best_retrieval() -> None:
     assert best.retrieval == retrieval
     same = {"experiment_name": "x", "retrieval": None}
     assert plain.model_copy(update=same) == best.model_copy(update=same)
+
+
+def test_gateway_config_only_swaps_the_generator() -> None:
+    ollama = load_config(REPO_ROOT / "configs" / "generation-ollama.yaml")
+    gateway = load_config(REPO_ROOT / "configs" / "generation-gateway.yaml")
+    same = {"experiment_name": "x", "generation": None}
+    assert ollama.model_copy(update=same) == gateway.model_copy(update=same)
+    assert gateway.generation.model_id.startswith("<")  # a placeholder the runner must set

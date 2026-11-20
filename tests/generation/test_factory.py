@@ -1,4 +1,7 @@
+import pytest
+
 from rag.config import GenerationConfig, LLMProvider
+from rag.errors import ConfigError
 from rag.generation.factory import build_generator, build_llm_client
 from rag.generation.generator import GroundedAnswerGenerator
 from rag.generation.llm_clients import AnthropicLLMClient, OllamaLLMClient
@@ -31,3 +34,22 @@ def test_ollama_client_gets_explicit_context_window_and_output_cap() -> None:
         Prompt(system="s", user="u", chunk_ids=())
     )
     assert payload["options"] == {"temperature": 0, "num_predict": 1024, "num_ctx": 8192}
+
+
+def test_gateway_reads_url_and_key_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    from rag.generation.llm_clients import OpenAICompatibleLLMClient
+
+    config = GenerationConfig(provider=LLMProvider.OPENAI_COMPATIBLE, model_id="gw-model")
+    monkeypatch.delenv("LLM_GATEWAY_URL", raising=False)
+    with pytest.raises(ConfigError, match="set LLM_GATEWAY_URL"):
+        build_llm_client(config)
+    monkeypatch.setenv("LLM_GATEWAY_URL", "https://gw.test/v1")
+    monkeypatch.setenv("LLM_GATEWAY_KEY", "k")
+    assert isinstance(build_llm_client(config), OpenAICompatibleLLMClient)
+
+
+def test_gateway_placeholder_model_must_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_GATEWAY_URL", "https://gw.test/v1")
+    config = GenerationConfig(provider=LLMProvider.OPENAI_COMPATIBLE, model_id="<gateway-model-id>")
+    with pytest.raises(ConfigError, match=r"set generation\.model_id"):
+        build_llm_client(config)
