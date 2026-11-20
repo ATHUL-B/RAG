@@ -27,7 +27,8 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 | # | Item | Guide | Status |
 | --- | --- | --- | --- |
-| 2.1 | LLM clients (Claude, Ollama; ADR 0005), labelled-source prompt, cited structured answers, deterministic answer checks + cost guard (HLD 010) | 11 | in-progress (code done; first paid run pending credentials) |
+| 2.1 | LLM clients (Claude, Ollama; ADR 0005), labelled-source prompt, cited structured answers, deterministic answer checks + cost guard (HLD 010) | 11 | in-progress (code done; first full run invalidated by a transport bug, see 2.1a) |
+| 2.1a | Output-integrity checks (reject empty/trivial answers and markup leaks), raw provider response in the trace, per-question ladder-step + integrity report in the generation runner. From the first full run, where 78% of outputs were lost ([analysis](../experiments/analysis/2026-11-19-first-generation-run.md)) | 11, 13 | todo |
 | 2.2 | Correctness + faithfulness judges; calibrate on ~50 hand-labelled answers | 13 | todo |
 | 2.3 | Refusal path (done in 2.1: `answerable: false` + provider refusals) + our own unanswerable questions in `evals/` | 11, 13 | todo |
 
