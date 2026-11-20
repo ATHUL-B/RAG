@@ -46,4 +46,5 @@ class RerankingRetriever(Retriever):
             relaxed=first.relaxed,
             stage_candidates={**first.stage_candidates, FIRST_STAGE: first.candidates},
             timings_ms={**first.timings_ms, **timer.timings_ms},
+            queries=first.queries,
         )

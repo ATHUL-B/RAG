@@ -24,6 +24,8 @@ class RetrievalResult(BaseModel):
     """Intermediate ranked lists by stage name (e.g. "dense", "bm25" before fusion)."""
     timings_ms: dict[str, float] = Field(default_factory=dict)
     """Wall-clock milliseconds of internal stages (e.g. "first_stage", "rerank")."""
+    queries: tuple[str, ...] = ()
+    """The search texts actually used, when a rewriter changed them (Part 7)."""
 
 
 class QueryRewriter(ABC):

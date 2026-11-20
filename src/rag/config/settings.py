@@ -110,6 +110,25 @@ class FilterConfig(StrictConfig):
     """Widen each mentioned year by this many years on both sides."""
     relax_order: tuple[FilterField, ...] = (FilterField.YEAR, FilterField.COMPANY)
     """Filters dropped one at a time, in this order, when a search finds nothing."""
+    short_fiscal_years: bool = False
+    """Read "FY22" / "FY 20" as 2022 / 2020 (rule-based planner, HLD 011)."""
+    forward_looking_prior_year: bool = False
+    """Forecast questions ("expected in FY2023") also allow the previous year's filing."""
+
+
+class RewriteConfig(StrictConfig):
+    """Rule-based query rewriting before search (Part 7, HLD 011)."""
+
+    strip_boilerplate: bool = False
+    """Drop instruction sentences; name statements by their filing titles."""
+    expand_abbreviations: bool = False
+    """Append spelled-out names of finance abbreviations (PP&E, COGS, ...)."""
+    keep_original: bool = True
+    """Also search the original question and fuse with RRF (Part 7, rule 1)."""
+
+    @property
+    def enabled(self) -> bool:
+        return self.strip_boilerplate or self.expand_abbreviations
 
 
 class RetrievalMode(StrEnum):
@@ -153,6 +172,7 @@ class RetrievalConfig(StrictConfig):
     fusion: FusionConfig = FusionConfig()
     rerank: RerankConfig = RerankConfig()
     filters: FilterConfig = FilterConfig()
+    rewrite: RewriteConfig = RewriteConfig()
 
 
 class EvaluationConfig(StrictConfig):

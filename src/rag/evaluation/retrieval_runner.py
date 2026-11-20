@@ -7,7 +7,7 @@ from collections import Counter
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from rag.domain import Chunk, Filters, GoldenItem, Metadata, Query, ScoredChunk, matches
 from rag.evaluation.evidence import evidence_unit, qrels_for, relevance_ids
@@ -59,6 +59,8 @@ class QueryTrace(BaseModel):
     status: RetrievalStatus
     applied_filters: Filters
     relaxed: list[str]
+    queries: list[str] = Field(default_factory=list)
+    """Search texts used when the query was rewritten (empty = the question as-is)."""
     stage_ranks: dict[str, int | None]
     """Per intermediate stage (e.g. dense, bm25): rank of the first evidence chunk, or None."""
     retrieved: list[RetrievedRecord]
@@ -171,6 +173,7 @@ class RetrievalEvalRunner:
             status=self._status(set(qrels), set(ids[: self._top_k]), filter_ok),
             applied_filters=dict(result.applied_filters),
             relaxed=list(result.relaxed),
+            queries=list(result.queries),
             stage_ranks=stage_ranks,
             retrieved=_records(hits, ids, qrels.keys()),
             timings_ms={**timer.timings_ms, **result.timings_ms},
