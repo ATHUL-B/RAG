@@ -6,6 +6,7 @@ from rag.config import (
     FilterField,
     LLMPlannerConfig,
     RerankConfig,
+    RerankerKind,
     RetrievalConfig,
     RetrievalMode,
     RewriteConfig,
@@ -112,3 +113,13 @@ def test_llm_planner_alone_or_with_rules_is_composed() -> None:
             RetrievalConfig(rewrite=rewrite), EMBEDDER, STORE, {}, planner=planner
         )
         assert isinstance(retriever, MultiQueryRetriever)
+
+
+def test_llm_rerank_needs_an_injected_reranker() -> None:
+    config = RetrievalConfig(rerank=RerankConfig(enabled=True, kind=RerankerKind.LLM))
+    with pytest.raises(ConfigError, match="no LLM reranker"):
+        build_retriever(config, EMBEDDER, STORE, {})
+    reranker = build_reranker(RerankConfig())  # any Reranker stands in
+    assert isinstance(
+        build_retriever(config, EMBEDDER, STORE, {}, reranker=reranker), RerankingRetriever
+    )

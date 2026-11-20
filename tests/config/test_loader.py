@@ -142,6 +142,8 @@ def test_structural_ablations_change_one_section(name: str, base: str, section: 
         ("planner-llm-w1-5.yaml", "planner-llm.yaml", {"rewrite"}),
         ("planner-llm-w2.yaml", "planner-llm.yaml", {"rewrite"}),
         ("planner-llm-w3.yaml", "planner-llm.yaml", {"rewrite"}),
+        ("planner-llm-rerank-llm.yaml", "planner-llm.yaml", {"rerank"}),
+        ("planner-llm-rerank-bge.yaml", "planner-llm.yaml", {"rerank"}),
     ],
 )
 def test_planner_ablations_change_only_filters_or_rewrite(

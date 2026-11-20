@@ -165,10 +165,16 @@ class OllamaLLMClient(LLMClient):
         timeout_s: float = 300.0,
         post_json: PostJson = urllib_post_json,
         max_output_tokens: int | None = None,
+        context_tokens: int | None = None,
     ) -> None:
-        """``max_output_tokens`` (Ollama ``num_predict``) bounds a runaway generation."""
+        """``max_output_tokens`` (Ollama ``num_predict``) bounds a runaway generation.
+        ``context_tokens`` (``num_ctx``) sets the context window: Ollama's default is small
+        and *silently truncates* longer prompts from the front."""
         if max_output_tokens is not None and max_output_tokens < 1:
             raise ValueError("max_output_tokens must be >= 1")
+        if context_tokens is not None and context_tokens < 1:
+            raise ValueError("context_tokens must be >= 1")
+        self._context_tokens = context_tokens
         self._model = model
         self._url = base_url.rstrip("/") + "/api/chat"
         self._timeout_s = timeout_s
@@ -191,6 +197,8 @@ class OllamaLLMClient(LLMClient):
         }
         if self._max_output_tokens is not None:
             payload["options"]["num_predict"] = self._max_output_tokens
+        if self._context_tokens is not None:
+            payload["options"]["num_ctx"] = self._context_tokens
         if prompt.response_schema is not None:
             payload["format"] = prompt.response_schema
         return payload
