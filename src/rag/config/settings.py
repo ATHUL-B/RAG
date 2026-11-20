@@ -49,6 +49,11 @@ class PathsConfig(StrictConfig):
         """Parsed ``Document`` artifacts, one JSON per document."""
         return self.processed_dir / "parsed"
 
+    @property
+    def planner_cache_dir(self) -> Path:
+        """Cached LLM query plans (HLD 012); safe to delete, rebuilt on the next run."""
+        return self.data_dir / "cache" / "planner"
+
     def chunks_dir(self, chunker_fingerprint: str) -> Path:
         """Chunk artifacts for one chunker configuration (configs coexist for ablations)."""
         return self.processed_dir / "chunks" / chunker_fingerprint
@@ -116,6 +121,22 @@ class FilterConfig(StrictConfig):
     """Forecast questions ("expected in FY2023") also allow the previous year's filing."""
 
 
+class LLMPlannerConfig(StrictConfig):
+    """Local LLM query planner via Ollama: decomposition into sub-queries (HLD 012)."""
+
+    enabled: bool = False
+    model_id: str = Field(default="llama3.1:8b", min_length=1)
+    ollama_url: str = "http://localhost:11434"
+    timeout_s: PositiveInt = 120
+    max_sub_queries: PositiveInt = 4
+    max_chars: PositiveInt = 200
+    """Longest sub-query: enforced in the output schema, then truncated as a backstop."""
+    max_output_tokens: PositiveInt = 300
+    """Cap on planner output (Ollama ``num_predict``): a runaway plan fails fast."""
+    cache: bool = True
+    """Reuse plans from data/cache/planner/<model>-<prompt hash>.json (Part 7, rule 5)."""
+
+
 class RewriteConfig(StrictConfig):
     """Rule-based query rewriting before search (Part 7, HLD 011)."""
 
@@ -125,10 +146,15 @@ class RewriteConfig(StrictConfig):
     """Append spelled-out names of finance abbreviations (PP&E, COGS, ...)."""
     keep_original: bool = True
     """Also search the original question and fuse with RRF (Part 7, rule 1)."""
+    llm_planner: LLMPlannerConfig = LLMPlannerConfig()
+
+    @property
+    def rules_enabled(self) -> bool:
+        return self.strip_boilerplate or self.expand_abbreviations
 
     @property
     def enabled(self) -> bool:
-        return self.strip_boilerplate or self.expand_abbreviations
+        return self.rules_enabled or self.llm_planner.enabled
 
 
 class RetrievalMode(StrEnum):

@@ -133,3 +133,22 @@ class RuleBasedRewriter(QueryRewriter):
         if not text or text == query.text:
             return []
         return [query.model_copy(update={"text": text})]
+
+
+class CompositeRewriter(QueryRewriter):
+    """Several rewriters in order (e.g. rules, then an LLM planner); identical texts once."""
+
+    def __init__(self, rewriters: list[QueryRewriter]) -> None:
+        if not rewriters:
+            raise ValueError("at least one rewriter is required")
+        self._rewriters = list(rewriters)
+
+    def rewrite(self, query: Query) -> list[Query]:
+        seen = {query.text}
+        out: list[Query] = []
+        for rewriter in self._rewriters:
+            for rewritten in rewriter.rewrite(query):
+                if rewritten.text not in seen:
+                    seen.add(rewritten.text)
+                    out.append(rewritten)
+        return out

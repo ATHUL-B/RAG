@@ -4,6 +4,7 @@ from rag.config import (
     BM25Config,
     FilterConfig,
     FilterField,
+    LLMPlannerConfig,
     RerankConfig,
     RetrievalConfig,
     RetrievalMode,
@@ -92,3 +93,22 @@ def test_rewrite_sits_inside_filters_so_filters_come_from_the_original_question(
 def test_rewrite_is_off_by_default() -> None:
     assert not RewriteConfig().enabled
     assert RewriteConfig(expand_abbreviations=True).enabled
+
+
+def test_llm_planner_needs_an_injected_planner() -> None:
+    rewrite = RewriteConfig(llm_planner=LLMPlannerConfig(enabled=True))
+    assert rewrite.enabled and not rewrite.rules_enabled
+    with pytest.raises(ConfigError, match="no planner"):
+        build_retriever(RetrievalConfig(rewrite=rewrite), EMBEDDER, STORE, {})
+
+
+def test_llm_planner_alone_or_with_rules_is_composed() -> None:
+    from rag.retrieval.rewriting import RuleBasedRewriter
+
+    planner = RuleBasedRewriter()  # any QueryRewriter stands in for the LLM planner
+    for rules in (False, True):
+        rewrite = RewriteConfig(strip_boilerplate=rules, llm_planner=LLMPlannerConfig(enabled=True))
+        retriever = build_retriever(
+            RetrievalConfig(rewrite=rewrite), EMBEDDER, STORE, {}, planner=planner
+        )
+        assert isinstance(retriever, MultiQueryRetriever)

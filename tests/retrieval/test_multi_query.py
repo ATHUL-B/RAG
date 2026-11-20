@@ -87,3 +87,20 @@ def test_rejects_bad_depth() -> None:
 
     with pytest.raises(ValueError, match="candidate_depth"):
         MultiQueryRetriever(ByText({}), Suffix(), ReciprocalRankFusion(), candidate_depth=0)
+
+
+class Ticks:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        self.now += 0.5
+        return self.now
+
+
+def test_rewrite_time_is_recorded_with_or_without_rewrites() -> None:
+    for rewriter in (Suffix(), Suffix(" clean")):
+        retriever = MultiQueryRetriever(
+            ByText({"q": ["a"], "q clean": ["a"]}), rewriter, ReciprocalRankFusion(), clock=Ticks()
+        )
+        assert retriever.retrieve(Query(text="q"), k=1).timings_ms == {"rewrite": 500.0}

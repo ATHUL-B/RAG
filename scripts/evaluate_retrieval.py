@@ -16,6 +16,7 @@ from pathlib import Path
 
 from rag.app import load_golden_items, load_retrieval_stack
 from rag.config import load_config
+from rag.errors import GenerationError
 from rag.evaluation.retrieval_report import OVERALL, RetrievalEvaluator
 from rag.evaluation.retrieval_runner import (
     RetrievalEvalRunner,
@@ -23,6 +24,7 @@ from rag.evaluation.retrieval_runner import (
     indexed_units,
 )
 from rag.evaluation.splits import SplitName
+from rag.generation.llm_clients import check_ollama_model
 from rag.storage import atomic_write_bytes
 
 SHOWN_METRICS = (
@@ -50,6 +52,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
+    planner_config = config.retrieval.rewrite.llm_planner
+    if planner_config.enabled:
+        try:
+            check_ollama_model(planner_config.model_id, planner_config.ollama_url)
+        except GenerationError as exc:
+            print(f"query planner unavailable: {exc}")
+            return 2
     stack = load_retrieval_stack(config)
     store = stack.store
     items = load_golden_items(config, args.split)
@@ -73,6 +82,12 @@ def main(argv: list[str] | None = None) -> int:
         "split": str(args.split),
         "config": config.model_dump(mode="json"),
     }
+    if (planner := stack.planner) is not None:
+        summary["planner"] = {
+            "calls": planner.calls,
+            "cache_hits": planner.cache_hits,
+            "failures": planner.failures,
+        }
     atomic_write_bytes(out / "metrics.json", _json(summary))
 
     names = [m.format(k=top_k) for m in SHOWN_METRICS]
@@ -81,6 +96,11 @@ def main(argv: list[str] | None = None) -> int:
     filtered = sum(bool(t.applied_filters) for t in result.traces)
     relaxed = sum(bool(t.relaxed) for t in result.traces)
     print(f"filters applied: {filtered}/{len(result.traces)} questions, relaxed: {relaxed}")
+    if planner is not None:
+        print(
+            f"query planner: {planner.calls} LLM calls, {planner.cache_hits} cache hits, "
+            f"{planner.failures} failures (fell back to rules)"
+        )
     print(f"retrieval latency ms: { {k: round(v, 1) for k, v in result.latency_ms.items()} }")
     for stage, summary_ms in result.stage_latency_ms.items():
         print(f"  {stage:<12} ms: { {k: round(v, 1) for k, v in summary_ms.items()} }")
