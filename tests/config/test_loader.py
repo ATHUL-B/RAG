@@ -130,9 +130,31 @@ def test_structural_ablations_change_one_section(name: str, base: str, section: 
     assert getattr(before, section) != getattr(after, section)
 
 
+@pytest.mark.parametrize(
+    ("name", "base", "changed"),
+    [
+        ("planner-fy.yaml", "pages-context.yaml", {"filters"}),
+        ("planner-forward.yaml", "pages-context.yaml", {"filters"}),
+        ("planner-clean.yaml", "pages-context.yaml", {"rewrite"}),
+        ("planner-abbrev.yaml", "pages-context.yaml", {"rewrite"}),
+        ("planner-rules.yaml", "planner-clean.yaml", {"filters", "rewrite"}),
+    ],
+)
+def test_planner_ablations_change_only_filters_or_rewrite(
+    name: str, base: str, changed: set[str]
+) -> None:
+    before = load_config(REPO_ROOT / "configs" / base)
+    after = load_config(REPO_ROOT / "configs" / name)
+    same = {"experiment_name": "x", "retrieval": None}
+    assert before.model_copy(update=same) == after.model_copy(update=same)
+    keep = {field: getattr(before.retrieval, field) for field in changed}
+    assert after.retrieval.model_copy(update=keep) == before.retrieval
+    assert all(getattr(after.retrieval, f) != getattr(before.retrieval, f) for f in changed)
+
+
 @pytest.mark.parametrize("name", ["generation-claude.yaml", "generation-ollama.yaml"])
 def test_generation_configs_reuse_the_default_retrieval(name: str) -> None:
-    default = load_config(REPO_ROOT / "configs" / "pages-context.yaml")
+    default = load_config(REPO_ROOT / "configs" / "planner-rules.yaml")
     generation = load_config(REPO_ROOT / "configs" / name)
     same = {"experiment_name": "x", "generation": None}
     assert default.model_copy(update=same) == generation.model_copy(update=same)

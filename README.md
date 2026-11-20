@@ -23,7 +23,7 @@ config gives the same chunk IDs and the same index.
 make install    # dependencies
 make data       # download 84 PDFs (~160 MB), parse, chunk, embed with bge-small on CPU
 cp .env.example .env    # then put your ANTHROPIC_API_KEY in .env
-uv run python scripts/evaluate_retrieval.py --config configs/pages-context.yaml   # free; dev split by default (--split test|all)
+uv run python scripts/evaluate_retrieval.py --config configs/planner-rules.yaml   # free; dev split by default (--split test|all)
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --dry-run  # cost estimate
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --limit 10 # ~$0.40
 ```
@@ -32,7 +32,7 @@ Evaluation scripts use the **dev** split by default (`evals/financebench-split.j
 96 of the 150 questions). Tune on dev; run `--split test` only to confirm a change
 generalises (see `evals/README.md`).
 
-`make data` builds the current default config (`configs/pages-context.yaml`,
+`make data` builds the current default config (`configs/planner-rules.yaml`,
 which `generation-claude.yaml` shares). To build the data for another
 experiment, run `make data CONFIG=configs/<name>.yaml`. Steps that are already
 done are skipped, so it is safe to re-run.
@@ -52,7 +52,8 @@ uv run python scripts/evaluate_retrieval.py  # recall@K, nDCG, MRR per segment +
 uv run python scripts/evaluate_retrieval.py --config configs/filters.yaml  # ablation: metadata filters
 uv run python scripts/evaluate_retrieval.py --config configs/hybrid.yaml   # ablation: dense + BM25 (RRF)
 uv run python scripts/evaluate_retrieval.py --config configs/rerank-bge.yaml  # ablation: + cross-encoder
-# current best: configs/pages-context.yaml (chunk + build_index with that config first)
+uv run python scripts/evaluate_retrieval.py --config configs/planner-clean.yaml  # ablation: + query cleanup (HLD 011)
+# current best: configs/planner-rules.yaml (same chunks/index as pages-context.yaml)
 
 # Phase 2: answers with citations (needs ANTHROPIC_API_KEY in .env, see .env.example)
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --dry-run

@@ -16,8 +16,10 @@ from rag.retrieval.filters import CatalogFilterExtractor
 from rag.retrieval.fusion import ReciprocalRankFusion
 from rag.retrieval.hybrid import HybridRetriever
 from rag.retrieval.keyword import KeywordRetriever
+from rag.retrieval.multi_query import MultiQueryRetriever
 from rag.retrieval.rerankers import CrossEncoderReranker, SentenceTransformersPairScorer
 from rag.retrieval.reranking import RerankingRetriever
+from rag.retrieval.rewriting import RuleBasedRewriter
 
 
 def build_bm25_index(config: BM25Config, chunks: Iterable[Chunk]) -> BM25Index:
@@ -45,8 +47,22 @@ def build_retriever(
     keyword_index: KeywordIndex | None = None,
     reranker: Reranker | None = None,
 ) -> Retriever:
-    """Compose: [filters] → [reranker] → first stage (dense | bm25 | hybrid)."""
+    """Compose: [filters] → [reranker] → [multi-query rewrite] → first stage.
+
+    Filters sit outside the rewriter, so they are extracted from the original question
+    and every rewritten search uses the same ones. The reranker sits outside too, so it
+    reorders the fused candidates against the original question.
+    """
     retriever = _base_retriever(config, embedder, store, keyword_index)
+    rewrite = config.rewrite
+    if rewrite.enabled:
+        retriever = MultiQueryRetriever(
+            retriever,
+            RuleBasedRewriter(strip=rewrite.strip_boilerplate, expand=rewrite.expand_abbreviations),
+            ReciprocalRankFusion(k=config.fusion.rrf_k),
+            keep_original=rewrite.keep_original,
+            candidate_depth=config.candidate_depth,
+        )
     if config.rerank.enabled:
         retriever = RerankingRetriever(
             retriever, reranker or build_reranker(config.rerank), depth=config.rerank.depth
@@ -58,6 +74,8 @@ def build_retriever(
             year_window=filters.year_window,
             extract_company=FilterField.COMPANY in filters.fields,
             extract_year=FilterField.YEAR in filters.fields,
+            short_fiscal_years=filters.short_fiscal_years,
+            forward_looking_prior_year=filters.forward_looking_prior_year,
         )
         retriever = FilteredRetriever(
             retriever, extractor, relax_order=[str(f) for f in filters.relax_order]

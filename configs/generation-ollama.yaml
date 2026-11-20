@@ -1,5 +1,5 @@
 # Phase 2 (HLD 010): local Ollama model answers from the same retrieval.
-# Retrieval settings are identical to pages-context.yaml.
+# Retrieval settings are identical to planner-rules.yaml.
 experiment_name: generation-ollama
 dataset: financebench
 
@@ -36,6 +36,12 @@ retrieval:
     fields: [company, year]
     year_window: 0
     relax_order: [year, company]
+    short_fiscal_years: true
+    forward_looking_prior_year: true
+  rewrite:
+    strip_boilerplate: true
+    expand_abbreviations: true
+    keep_original: true
 
 generation:                     # <- vs generation-claude.yaml: local model via Ollama
   provider: ollama

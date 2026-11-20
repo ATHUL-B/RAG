@@ -23,6 +23,15 @@ _YEAR = re.compile(r"(?<!\d)(?<!\d[,.])(199\d|20[0-4]\d)(?!\d|[,.]\d)")
 A comma or period *followed by a digit* means a number; followed by a space it is prose
 ("FY2023, FY2022 and FY2021"), so the year still counts.
 """
+_SHORT_FISCAL_YEAR = re.compile(r"\bFY\s?'?(\d{2})(?![\d,.]\d|\d)", re.IGNORECASE)
+"""Two-digit fiscal years: "FY22", "FY 20", "FY'21". Only with the FY prefix: a bare "22"
+is far more often a count or a percentage than a year."""
+_FORWARD_LOOKING = re.compile(
+    r"\b(?:expect(?:s|ed|ing|ation|ations)?|forecast(?:s|ed|ing)?|guidance|outlook"
+    r"|anticipat(?:e|es|ed|ing)|project(?:s|ed|ion|ions)?)\b",
+    re.IGNORECASE,
+)
+"""Cue words for a forecast. A forecast *for* FY2023 is written in the FY2022 filing."""
 
 
 def normalize(text: str) -> str:
@@ -36,8 +45,12 @@ class CatalogFilterExtractor(FilterExtractor):
     - Company: an alias must appear as whole words. If aliases of two different
       companies appear, no company filter is returned: a wrong hard filter hides the
       answer completely, which is worse than not filtering.
-    - Year: every mentioned year, widened by ``year_window`` on each side
-      (forward-looking questions are answered by the previous year's filing).
+    - Year: every mentioned year, widened by ``year_window`` on each side.
+    - ``short_fiscal_years``: also read "FY22" as 2022 (rule-based planner, backlog 3.6).
+    - ``forward_looking_prior_year``: when the question asks about a forecast ("expected
+      in FY2023"), also allow the year before each mentioned year, because the forecast is
+      published in the previous year's filing. Unlike ``year_window`` this widens only
+      forward-looking questions (a blanket +-1 window was measured worse in HLD 006).
     """
 
     def __init__(
@@ -46,6 +59,8 @@ class CatalogFilterExtractor(FilterExtractor):
         year_window: int = 0,
         extract_company: bool = True,
         extract_year: bool = True,
+        short_fiscal_years: bool = False,
+        forward_looking_prior_year: bool = False,
     ) -> None:
         if year_window < 0:
             raise ValueError("year_window must be >= 0")
@@ -61,6 +76,8 @@ class CatalogFilterExtractor(FilterExtractor):
         self._year_window = year_window
         self._extract_company = extract_company
         self._extract_year = extract_year
+        self._short_fiscal_years = short_fiscal_years
+        self._forward_looking_prior_year = forward_looking_prior_year
 
     def extract(self, text: str) -> Filters:
         filters: Filters = {}
@@ -77,5 +94,15 @@ class CatalogFilterExtractor(FilterExtractor):
 
     def _years(self, text: str) -> tuple[int, ...]:
         mentioned = {int(y) for y in _YEAR.findall(text)}
+        if self._short_fiscal_years:
+            mentioned |= {_century(int(yy)) for yy in _SHORT_FISCAL_YEAR.findall(text)}
         window = range(-self._year_window, self._year_window + 1)
-        return tuple(sorted({year + offset for year in mentioned for offset in window}))
+        years = {year + offset for year in mentioned for offset in window}
+        if self._forward_looking_prior_year and _FORWARD_LOOKING.search(text):
+            years |= {year - 1 for year in mentioned}
+        return tuple(sorted(years))
+
+
+def _century(two_digits: int) -> int:
+    """FY95 → 1995, FY22 → 2022 (the corpus spans the 1990s to the 2040s at most)."""
+    return 1900 + two_digits if two_digits >= 90 else 2000 + two_digits

@@ -83,3 +83,54 @@ def test_question_without_company_or_year_has_no_filters() -> None:
 
 def test_normalize_pads_and_collapses_punctuation() -> None:
     assert normalize("Coca-Cola's  FY2022!") == " coca cola s fy2022 "
+
+
+class TestShortFiscalYears:
+    @pytest.mark.parametrize(
+        ("question", "years"),
+        [
+            ("What drove revenue change as of the FY22 for AMD?", (2022,)),
+            ("Did Pfizer grow its PPNE between FY20 and FY21?", (2020, 2021)),
+            ("fy 19 margin", (2019,)),
+            ("FY'21 capex", (2021,)),
+            ("FY99 results", (1999,)),
+            ("FY2023Q1 guidance", (2023,)),  # a 4-digit year is not also read as FY20
+            ("as of FY 2021", (2021,)),
+        ],
+    )
+    def test_reads_two_digit_fiscal_years(self, question: str, years: tuple[int, ...]) -> None:
+        assert _extract(question, short_fiscal_years=True)["year"] == years
+
+    @pytest.mark.parametrize("text", ["revenue grew 22%", "FY22.5 units", "FY221", "fy 22,5"])
+    def test_requires_the_fy_prefix_and_a_whole_number(self, text: str) -> None:
+        assert "year" not in _extract(text, short_fiscal_years=True)
+
+    def test_off_by_default(self) -> None:
+        assert "year" not in _extract("as of the FY22")
+
+
+class TestForwardLooking:
+    @pytest.mark.parametrize(
+        ("question", "years"),
+        [
+            ("Is growth in JnJ's adjusted EPS expected to accelerate in FY2023?", (2022, 2023)),
+            ("What production rate changes is Boeing forecasting for FY2023?", (2022, 2023)),
+            ("FY2024 guidance and outlook", (2023, 2024)),
+            ("What was FY2022 revenue?", (2022,)),  # not a forecast: unchanged
+        ],
+    )
+    def test_forecasts_also_allow_the_previous_years_filing(
+        self, question: str, years: tuple[int, ...]
+    ) -> None:
+        assert _extract(question, forward_looking_prior_year=True)["year"] == years
+
+    def test_does_not_invent_a_year(self) -> None:
+        assert "year" not in _extract(
+            "How much does Pfizer expect to pay?", forward_looking_prior_year=True
+        )
+
+    def test_combines_with_short_fiscal_years(self) -> None:
+        years = _extract(
+            "AMD outlook for FY23", short_fiscal_years=True, forward_looking_prior_year=True
+        )
+        assert years["year"] == (2022, 2023)

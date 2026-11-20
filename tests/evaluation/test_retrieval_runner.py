@@ -31,10 +31,12 @@ class ScriptedRetriever(Retriever):
         results: dict[str, list[Chunk]],
         filters: Filters | None = None,
         relaxed: tuple[str, ...] = (),
+        queries: tuple[str, ...] = (),
     ) -> None:
         self._results = results
         self._filters = filters or {}
         self._relaxed = relaxed
+        self._queries = queries
         self.depths: list[int] = []
 
     def retrieve(self, query: Query, k: int) -> RetrievalResult:
@@ -45,7 +47,10 @@ class ScriptedRetriever(Retriever):
             for i, c in enumerate(chunks)
         )
         return RetrievalResult(
-            candidates=hits, applied_filters=self._filters, relaxed=self._relaxed
+            candidates=hits,
+            applied_filters=self._filters,
+            relaxed=self._relaxed,
+            queries=self._queries,
         )
 
 
@@ -253,3 +258,11 @@ def test_internal_stage_timings_are_traced_and_summarized() -> None:
     assert set(result.stage_latency_ms) == {"first_stage", "rerank"}
     assert result.stage_latency_ms["first_stage"]["max"] == 20.0
     assert result.stage_latency_ms["rerank"]["p50"] == 100.0
+
+
+def test_trace_records_rewritten_search_texts() -> None:
+    retriever = ScriptedRetriever(RESULTS, queries=("hit", "hit cleaned"))
+    (trace,) = _runner(retriever).run([_item("hit", 1)]).traces
+    assert trace.queries == ["hit", "hit cleaned"]
+    (plain,) = _runner(ScriptedRetriever(RESULTS)).run([_item("hit", 1)]).traces
+    assert plain.queries == []

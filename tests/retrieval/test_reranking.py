@@ -33,6 +33,7 @@ class FirstStage(Retriever):
             relaxed=("year",),
             stage_candidates={"dense": hits[:2]},
             timings_ms={"dense": 3.0},
+            queries=("q", "q clean"),
         )
 
 
@@ -66,6 +67,7 @@ def test_reranks_a_deeper_first_stage_and_returns_k() -> None:
     assert [c.chunk.chunk_id for c in result.candidates] == ["c20", "c19", "c18"]
     assert result.applied_filters == {"company": "3M"}
     assert result.relaxed == ("year",)
+    assert result.queries == ("q", "q clean")  # rewritten queries survive into the trace
 
 
 def test_keeps_first_stage_lists_and_timings_for_the_trace() -> None:

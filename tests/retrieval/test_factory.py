@@ -7,6 +7,7 @@ from rag.config import (
     RerankConfig,
     RetrievalConfig,
     RetrievalMode,
+    RewriteConfig,
 )
 from rag.domain import Chunk
 from rag.errors import ConfigError
@@ -16,6 +17,7 @@ from rag.retrieval.factory import build_bm25_index, build_reranker, build_retrie
 from rag.retrieval.filtered import FilteredRetriever
 from rag.retrieval.hybrid import HybridRetriever
 from rag.retrieval.keyword import KeywordRetriever
+from rag.retrieval.multi_query import MultiQueryRetriever
 from rag.retrieval.rerankers import CrossEncoderReranker
 from rag.retrieval.reranking import RerankingRetriever
 from support.embedders import HashingEmbedder
@@ -77,3 +79,16 @@ def test_rerank_wraps_the_first_stage_and_filters_wrap_everything() -> None:
         RerankingRetriever,
     )
     assert isinstance(reranker, CrossEncoderReranker)
+
+
+def test_rewrite_sits_inside_filters_so_filters_come_from_the_original_question() -> None:
+    rewrite = RewriteConfig(strip_boilerplate=True)
+    plain = build_retriever(RetrievalConfig(rewrite=rewrite), EMBEDDER, STORE, {})
+    assert isinstance(plain, MultiQueryRetriever)
+    config = RetrievalConfig(rewrite=rewrite, filters=FilterConfig(enabled=True))
+    assert isinstance(build_retriever(config, EMBEDDER, STORE, {}), FilteredRetriever)
+
+
+def test_rewrite_is_off_by_default() -> None:
+    assert not RewriteConfig().enabled
+    assert RewriteConfig(expand_abbreviations=True).enabled

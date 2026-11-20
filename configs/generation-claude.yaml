@@ -1,5 +1,5 @@
-# Phase 2 (HLD 010): Claude (claude-opus-5-5) answers from the current default retrieval (pages-context).
-# Retrieval settings are identical to pages-context.yaml.
+# Phase 2 (HLD 010): Claude (claude-opus-5-5) answers from the current default retrieval (planner-rules).
+# Retrieval settings are identical to planner-rules.yaml.
 experiment_name: generation-claude
 dataset: financebench
 
@@ -36,8 +36,14 @@ retrieval:
     fields: [company, year]
     year_window: 0
     relax_order: [year, company]
+    short_fiscal_years: true
+    forward_looking_prior_year: true
+  rewrite:
+    strip_boilerplate: true
+    expand_abbreviations: true
+    keep_original: true
 
-generation:                     # <- vs pages-context.yaml (ADR 0005, HLD 010)
+generation:                     # <- vs planner-rules.yaml (ADR 0005, HLD 010)
   provider: anthropic
   model_id: claude-opus-5-5
   effort: medium

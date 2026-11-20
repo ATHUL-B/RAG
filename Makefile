@@ -1,6 +1,6 @@
 UV ?= uv
 # Retrieval config whose chunks + index `make data` builds (the current default).
-CONFIG ?= configs/pages-context.yaml
+CONFIG ?= configs/planner-rules.yaml
 
 .PHONY: install format lint typecheck test test-slow check download-financebench data
 

@@ -21,6 +21,7 @@ from rag.config.settings import (
     RerankConfig,
     RetrievalConfig,
     RetrievalMode,
+    RewriteConfig,
 )
 
 __all__ = [
@@ -45,5 +46,6 @@ __all__ = [
     "RerankConfig",
     "RetrievalConfig",
     "RetrievalMode",
+    "RewriteConfig",
     "load_config",
 ]
