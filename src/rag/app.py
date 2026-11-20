@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from rag.config import AppConfig, RetrievalMode
+from rag.config import AppConfig, RerankerKind, RetrievalMode
 from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
 from rag.domain import GoldenItem
 from rag.evaluation.splits import SplitName, load_split, select
@@ -19,6 +19,7 @@ from rag.ingestion.factory import build_chunker
 from rag.retrieval.base import Retriever
 from rag.retrieval.factory import build_bm25_index, build_retriever
 from rag.retrieval.llm_planner import LLMQueryPlanner, PlanCache, plan_schema
+from rag.retrieval.llm_reranker import GradeCache, LLMPointwiseReranker
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class RetrievalStack:
     store: ExactVectorStore
     planner: LLMQueryPlanner | None = None
     """Kept so scripts can report planner calls, cache hits and failures."""
+    llm_reranker: LLMPointwiseReranker | None = None
 
 
 def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
@@ -40,11 +42,40 @@ def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
         else None
     )
     planner = build_planner(config)
+    llm_reranker = build_llm_reranker(config)
     retriever = build_retriever(
-        config.retrieval, embedder, store, COMPANY_ALIASES, keyword_index, planner=planner
+        config.retrieval,
+        embedder,
+        store,
+        COMPANY_ALIASES,
+        keyword_index,
+        reranker=llm_reranker,
+        planner=planner,
     )
     embedder.embed_query("warm-up")  # load the model before any timed work
-    return RetrievalStack(retriever=retriever, store=store, planner=planner)
+    return RetrievalStack(
+        retriever=retriever, store=store, planner=planner, llm_reranker=llm_reranker
+    )
+
+
+def build_llm_reranker(config: AppConfig) -> LLMPointwiseReranker | None:
+    """The configured local-LLM reranker (HLD 014), or None. No network until first use."""
+    rerank = config.retrieval.rerank
+    if not (rerank.enabled and rerank.kind is RerankerKind.LLM):
+        return None
+    llm = OllamaLLMClient(
+        model=rerank.llm.model_id,
+        base_url=rerank.llm.ollama_url,
+        timeout_s=float(rerank.llm.timeout_s),
+        max_output_tokens=rerank.llm.max_output_tokens,
+        context_tokens=rerank.llm.context_tokens,
+    )
+    cache = (
+        GradeCache.for_model(config.paths.rerank_cache_dir, rerank.llm.model_id)
+        if rerank.llm.cache
+        else None
+    )
+    return LLMPointwiseReranker(llm, max_passage_chars=rerank.llm.max_passage_chars, cache=cache)
 
 
 def build_planner(config: AppConfig) -> LLMQueryPlanner | None:

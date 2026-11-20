@@ -54,7 +54,8 @@ uv run python scripts/evaluate_retrieval.py --config configs/hybrid.yaml   # abl
 uv run python scripts/evaluate_retrieval.py --config configs/rerank-bge.yaml  # ablation: + cross-encoder
 uv run python scripts/evaluate_retrieval.py --config configs/planner-clean.yaml  # ablation: + query cleanup (HLD 011)
 uv run python scripts/evaluate_retrieval.py --config configs/planner-llm.yaml  # + local LLM planner: needs Ollama + `ollama pull llama3.1:8b`
-# current best: configs/planner-rules.yaml (same chunks/index as pages-context.yaml)
+uv run python scripts/evaluate_retrieval.py --config configs/planner-llm-rerank-llm.yaml  # + local LLM reranker (best quality, ~27 s/question)
+# default (no local model needed): configs/planner-rules.yaml; best quality: configs/planner-llm-rerank-llm.yaml (same chunks/index as pages-context.yaml)
 
 # Phase 2: answers with citations (needs ANTHROPIC_API_KEY in .env, see .env.example)
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --dry-run

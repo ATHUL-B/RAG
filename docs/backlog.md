@@ -40,7 +40,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 3.2 | Page-aware chunking + contextual headers (filing + page title block) (HLD 009): recall@5 0.377 → 0.427 (n.s. per step) | 4 | done |
 | 3.3 | Metadata filters (company, year) from the question, with relaxation (HLD 006): recall@5 0.273 → 0.377 | 8 | done |
 | 3.4 | BM25 index + Reciprocal Rank Fusion (HLD 007): top-5 tie with dense, candidate pool better (hit@50 0.820 → 0.887) | 9 | done |
-| 3.5 | Cross-encoder rerankers (MiniLM, bge-base) over hybrid/dense pools (HLD 008, ADR 0004): no top-5 gain, +220 ms-1.5 s; kept, disabled | 10 | done |
+| 3.5 | Cross-encoder rerankers (MiniLM, bge-base) over hybrid/dense pools (HLD 008, ADR 0004): no top-5 gain, +220 ms-1.5 s; kept, disabled. **3.5b:** local LLM pointwise reranker over the planner pool (HLD 014): dev 0.740, test 0.667 (significant); ~26 s/question | 10 | done |
 | 3.6 | Query rewriting / decomposition. **Step 1 done:** rule-based planner (HLD 011), dev recall@5 0.427 → 0.484, test 0.426 → 0.481 (both significant). **Step 2 done:** local LLM planner (Ollama llama3.1:8b, HLD 012), dev 0.484 → 0.583 (significant), test 0.481 → 0.546 (n.s.; MRR significant), +2.3 s/question uncached; opt-in, not default. Step 3: weighting the original list in RRF (HLD 013) **rejected**: no weight helps; losses are a top-5 budget problem, pool_recall 0.976 | 7 | done (rules default; LLM planner opt-in) |
 | 3.7 | Contextual chunks, parent-child retrieval | 4, 12 | todo |
 
@@ -55,11 +55,10 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 ## Discovered / unscheduled
 
-- **Priority after 3.6:** with the LLM planner the evidence is in the fused pool for 97.6%
-  of dev questions but in the top 5 for only 58% (HLD 013). Rerank the fused pool:
-  re-measure the cross-encoders of HLD 008/009 on this richer pool and compare an LLM
-  reranker (local model). Alternative on the generation side: a larger context budget
-  (top-8/10).
+- ~~**Priority after 3.6:** rerank the fused pool.~~ **Done (HLD 014):** local LLM
+  pointwise reranker, dev 0.583 → 0.740, test 0.546 → 0.667 (both significant);
+  cross-encoder still worse. **Next for it:** latency (~26 s/question): depth 10, parallel
+  grading, smaller grader, or distil grades into a cross-encoder (Part 14).
 
 - Parse audit: add a whitespace-insensitive coverage variant (annotator evidence has
   spaces stripped, e.g. `Cashandcashequivalents`, which deflates current coverage).

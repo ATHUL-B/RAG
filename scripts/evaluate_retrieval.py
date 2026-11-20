@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rag.app import load_golden_items, load_retrieval_stack
-from rag.config import load_config
+from rag.config import RerankerKind, load_config
 from rag.errors import GenerationError
 from rag.evaluation.retrieval_report import OVERALL, RetrievalEvaluator
 from rag.evaluation.retrieval_runner import (
@@ -53,11 +53,15 @@ def main(argv: list[str] | None = None) -> int:
 
     config = load_config(args.config)
     planner_config = config.retrieval.rewrite.llm_planner
-    if planner_config.enabled:
+    rerank = config.retrieval.rerank
+    local_models = [(planner_config.model_id, planner_config.ollama_url)] * planner_config.enabled
+    if rerank.enabled and rerank.kind is RerankerKind.LLM:
+        local_models.append((rerank.llm.model_id, rerank.llm.ollama_url))
+    for model_id, url in local_models:
         try:
-            check_ollama_model(planner_config.model_id, planner_config.ollama_url)
+            check_ollama_model(model_id, url)
         except GenerationError as exc:
-            print(f"query planner unavailable: {exc}")
+            print(f"local model unavailable: {exc}")
             return 2
     stack = load_retrieval_stack(config)
     store = stack.store
@@ -88,6 +92,12 @@ def main(argv: list[str] | None = None) -> int:
             "cache_hits": planner.cache_hits,
             "failures": planner.failures,
         }
+    if (llm_reranker := stack.llm_reranker) is not None:
+        summary["llm_reranker"] = {
+            "calls": llm_reranker.calls,
+            "cache_hits": llm_reranker.cache_hits,
+            "fallbacks": llm_reranker.failures,
+        }
     atomic_write_bytes(out / "metrics.json", _json(summary))
 
     names = [m.format(k=top_k) for m in SHOWN_METRICS]
@@ -96,6 +106,11 @@ def main(argv: list[str] | None = None) -> int:
     filtered = sum(bool(t.applied_filters) for t in result.traces)
     relaxed = sum(bool(t.relaxed) for t in result.traces)
     print(f"filters applied: {filtered}/{len(result.traces)} questions, relaxed: {relaxed}")
+    if llm_reranker is not None:
+        print(
+            f"llm reranker: {llm_reranker.calls} grading calls, {llm_reranker.cache_hits} "
+            f"cache hits, {llm_reranker.failures} questions fell back to fused order"
+        )
     if planner is not None:
         print(
             f"query planner: {planner.calls} LLM calls, {planner.cache_hits} cache hits, "

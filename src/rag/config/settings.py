@@ -50,6 +50,11 @@ class PathsConfig(StrictConfig):
         return self.processed_dir / "parsed"
 
     @property
+    def rerank_cache_dir(self) -> Path:
+        """Cached LLM rerank grades (HLD 014); safe to delete."""
+        return self.data_dir / "cache" / "rerank"
+
+    @property
     def planner_cache_dir(self) -> Path:
         """Cached LLM query plans (HLD 012); safe to delete, rebuilt on the next run."""
         return self.data_dir / "cache" / "planner"
@@ -178,10 +183,31 @@ class FusionConfig(StrictConfig):
     weights: dict[str, float] = Field(default_factory=lambda: {"dense": 1.0, "bm25": 1.0})
 
 
+class RerankerKind(StrEnum):
+    CROSS_ENCODER = "cross_encoder"
+    LLM = "llm"
+
+
+class LLMRerankConfig(StrictConfig):
+    """Pointwise grading of each candidate by a local Ollama model (HLD 014)."""
+
+    model_id: str = Field(default="llama3.1:8b", min_length=1)
+    ollama_url: str = "http://localhost:11434"
+    timeout_s: PositiveInt = 120
+    context_tokens: PositiveInt = 4096
+    """Ollama ``num_ctx``: must fit prompt + passage, or Ollama silently truncates."""
+    max_passage_chars: PositiveInt = 3000
+    max_output_tokens: PositiveInt = 20
+    cache: bool = True
+    """Reuse grades from data/cache/rerank/<model>-<prompt hash>.json."""
+
+
 class RerankConfig(StrictConfig):
-    """Cross-encoder reranking (ADR 0004, HLD 008)."""
+    """Second-stage reranking: cross-encoder (ADR 0004, HLD 008) or local LLM (HLD 014)."""
 
     enabled: bool = False
+    kind: RerankerKind = RerankerKind.CROSS_ENCODER
+    llm: LLMRerankConfig = LLMRerankConfig()
     model_id: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2", min_length=1)
     revision: str | None = "233902d25c440f23af6f7d6e94d2946bac0bee0a"
     depth: PositiveInt = 50

@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
-from rag.config import BM25Config, FilterField, RerankConfig, RetrievalConfig, RetrievalMode
+from rag.config import (
+    BM25Config,
+    FilterField,
+    RerankConfig,
+    RerankerKind,
+    RetrievalConfig,
+    RetrievalMode,
+)
 from rag.domain import Chunk
 from rag.errors import ConfigError
 from rag.indexing.base import Embedder, KeywordIndex, VectorStore
@@ -78,6 +85,8 @@ def build_retriever(
             candidate_depth=config.candidate_depth,
         )
     if config.rerank.enabled:
+        if reranker is None and config.rerank.kind is RerankerKind.LLM:
+            raise ConfigError("rerank.kind is llm but no LLM reranker was given")
         retriever = RerankingRetriever(
             retriever, reranker or build_reranker(config.rerank), depth=config.rerank.depth
         )

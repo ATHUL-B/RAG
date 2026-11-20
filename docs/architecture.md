@@ -2,7 +2,9 @@
 
 Current state: **retrieval with metadata filters, page-aware contextual chunks and a
 rule-based query planner** (default `configs/planner-rules.yaml`, dev recall@5 0.484,
-test 0.481; HLD 011), plus optional BM25/hybrid and cross-encoder reranking (Phase 3.2-3.5) (pypdf → recursive chunks → bge-small
+test 0.481; HLD 011). Best quality, with a local Ollama model: LLM query planner + LLM
+reranker (`configs/planner-llm-rerank-llm.yaml`, dev 0.740, test 0.667; HLD 012-014), plus
+optional BM25/hybrid and cross-encoder reranking (Phase 3.2-3.5) (pypdf → recursive chunks → bge-small
 embeddings → exact NumPy index → dense top-K), evaluated on FinanceBench with traces and
 failure-ladder status. Grounded generation with citations is in HLD 010. Guided tours:
 [`walkthroughs/phase-1-baseline.md`](walkthroughs/phase-1-baseline.md), then
@@ -27,7 +29,7 @@ ONLINE   Query ─► FilterExtractor (company, year) ─► [QueryRewriter: ori
 | `rag.domain` | Immutable data shared by all stages; deterministic IDs | `Document`, `Page`, `Chunk`, `SourceSpan`, `ScoredChunk`, `Query`, `Answer`, `GoldenItem` |
 | `rag.ingestion` | Parse, clean, enrich, chunk | `Parser`, `Cleaner`, `MetadataEnricher`, `Chunker`; `PypdfParser`, `StaticMetadataEnricher`, `ParseStage`, `RecursiveChunker` (optionally page-aware), `ContextualChunker`, `HeaderContextualizer`, `TokenCounter`, `ChunkStage`, `build_parser`, `build_chunker` |
 | `rag.indexing` | Embed and index | `Embedder`, `VectorStore`, `KeywordIndex`; `SentenceTransformerEmbedder`, `ExactVectorStore`, `BM25Index`, `analyze`, `IndexStage`, `build_embedder` |
-| `rag.retrieval` | Extract filters, retrieve, fuse, rerank | `FilterExtractor`, `Retriever` → `RetrievalResult`, `Fuser`, `Reranker`; `DenseRetriever`, `KeywordRetriever`, `HybridRetriever`, `ReciprocalRankFusion`, `CrossEncoderReranker`, `RerankingRetriever`, `CatalogFilterExtractor`, `FilteredRetriever`, `QueryRewriter`, `RuleBasedRewriter`, `MultiQueryRetriever`, `build_retriever` |
+| `rag.retrieval` | Extract filters, retrieve, fuse, rerank | `FilterExtractor`, `Retriever` → `RetrievalResult`, `Fuser`, `Reranker`; `DenseRetriever`, `KeywordRetriever`, `HybridRetriever`, `ReciprocalRankFusion`, `CrossEncoderReranker`, `RerankingRetriever`, `CatalogFilterExtractor`, `FilteredRetriever`, `QueryRewriter`, `RuleBasedRewriter`, `LLMQueryPlanner`, `MultiQueryRetriever`, `LLMPointwiseReranker`, `build_retriever` |
 | `rag.generation` | Prompt assembly and LLM call | `ContextAssembler`, `LLMClient`, `AnswerGenerator`, `Prompt`, `Completion`, `GenerationResult`; `SourcesContextAssembler`, `AnthropicLLMClient`, `OllamaLLMClient`, `GroundedAnswerGenerator`, `build_generator` |
 | `rag.evaluation` | Golden sets, metrics, judges | `retrieval_metrics` (pure functions), `RetrievalEvaluator`, `aggregate`, `MetricsReport`, `evidence` (qrels, relevance units), `RetrievalEvalRunner`, `QueryTrace`, `GenerationEvalRunner`, `generation_metrics`, `compare_runs` (paired bootstrap), `ParseAuditor`, `ChunkAuditor`, `Judge`, `Verdict` |
 | `rag.observability` | Timing, latency percentiles, structured logs | `StageTimer`, `latency_summary`, `JsonFormatter` |

@@ -154,3 +154,10 @@ def test_ollama_output_cap_is_sent_as_num_predict() -> None:
     assert "num_predict" not in OllamaLLMClient().request_payload(PROMPT)["options"]
     with pytest.raises(ValueError, match="max_output_tokens"):
         OllamaLLMClient(max_output_tokens=0)
+
+
+def test_ollama_context_window_is_sent_as_num_ctx() -> None:
+    payload = OllamaLLMClient(context_tokens=4096).request_payload(PROMPT)
+    assert payload["options"]["num_ctx"] == 4096
+    with pytest.raises(ValueError, match="context_tokens"):
+        OllamaLLMClient(context_tokens=0)
