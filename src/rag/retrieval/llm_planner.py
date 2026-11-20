@@ -54,13 +54,15 @@ Rules:
 _NON_SLUG: Final = re.compile(r"[^a-z0-9]+")
 
 
-def plan_schema(max_sub_queries: int) -> dict[str, Any]:
+def plan_schema(max_sub_queries: int, max_chars: int = 200) -> dict[str, Any]:
+    """``maxLength`` is enforced by Ollama's grammar: it stops a model stuck repeating a
+    phrase inside one string (seen on dev: a 120 s timeout every time) by construction."""
     return {
         "type": "object",
         "properties": {
             "sub_queries": {
                 "type": "array",
-                "items": {"type": "string"},
+                "items": {"type": "string", "maxLength": max_chars},
                 "minItems": 1,
                 "maxItems": max_sub_queries,
             }
@@ -70,9 +72,11 @@ def plan_schema(max_sub_queries: int) -> dict[str, Any]:
     }
 
 
-def prompt_fingerprint(system: str = PLANNER_SYSTEM) -> str:
-    """Changes whenever the instructions change, so cached plans never outlive their prompt."""
-    return hashlib.sha256(system.encode("utf-8")).hexdigest()[:12]
+def prompt_fingerprint(system: str = PLANNER_SYSTEM, schema: dict[str, Any] | None = None) -> str:
+    """Changes whenever the instructions or the output schema change, so cached plans
+    never outlive the request that produced them."""
+    payload = json.dumps({"system": system, "schema": schema}, sort_keys=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
 
 class PlanCache:
@@ -85,9 +89,11 @@ class PlanCache:
         )
 
     @classmethod
-    def for_model(cls, cache_dir: Path, model_id: str) -> PlanCache:
+    def for_model(
+        cls, cache_dir: Path, model_id: str, schema: dict[str, Any] | None = None
+    ) -> PlanCache:
         slug = _NON_SLUG.sub("-", model_id.lower()).strip("-")
-        return cls(cache_dir / f"{slug}-{prompt_fingerprint()}.json")
+        return cls(cache_dir / f"{slug}-{prompt_fingerprint(PLANNER_SYSTEM, schema)}.json")
 
     @property
     def path(self) -> Path:
@@ -135,7 +141,7 @@ class LLMQueryPlanner(QueryRewriter):
             system=PLANNER_SYSTEM,
             user=f"Question: {question}",
             chunk_ids=(),
-            response_schema=plan_schema(self._max_sub_queries),
+            response_schema=plan_schema(self._max_sub_queries, self._max_chars),
         )
         try:
             completion = self._llm.complete(prompt)

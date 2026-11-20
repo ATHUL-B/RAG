@@ -41,7 +41,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 3.3 | Metadata filters (company, year) from the question, with relaxation (HLD 006): recall@5 0.273 → 0.377 | 8 | done |
 | 3.4 | BM25 index + Reciprocal Rank Fusion (HLD 007): top-5 tie with dense, candidate pool better (hit@50 0.820 → 0.887) | 9 | done |
 | 3.5 | Cross-encoder rerankers (MiniLM, bge-base) over hybrid/dense pools (HLD 008, ADR 0004): no top-5 gain, +220 ms-1.5 s; kept, disabled | 10 | done |
-| 3.6 | Query rewriting / decomposition. **Step 1 done:** rule-based planner (HLD 011), dev recall@5 0.427 → 0.484, test 0.426 → 0.481 (both significant). **Step 2 todo:** LLM planner with decomposition, must beat `planner-rules` on dev | 7 | in-progress |
+| 3.6 | Query rewriting / decomposition. **Step 1 done:** rule-based planner (HLD 011), dev recall@5 0.427 → 0.484, test 0.426 → 0.481 (both significant). **Step 2 done:** local LLM planner (Ollama llama3.1:8b, HLD 012), dev 0.484 → 0.583 (significant), test 0.481 → 0.546 (n.s.; MRR significant), +2.3 s/question uncached; opt-in, not default. **Next:** weight the original list in RRF (fixes the losses), then re-test | 7 | in-progress |
 | 3.7 | Contextual chunks, parent-child retrieval | 4, 12 | todo |
 
 ## Phase 4: Production concerns

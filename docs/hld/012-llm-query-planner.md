@@ -60,7 +60,8 @@ retrieval:
       ollama_url: http://localhost:11434
       timeout_s: 120
       max_sub_queries: 4
-      max_chars: 200
+      max_chars: 200            # also the schema's maxLength per sub-query
+      max_output_tokens: 300    # Ollama num_predict: a runaway plan fails fast
       cache: true
 ```
 
@@ -79,9 +80,53 @@ block (enforced by a config test).
   M-series laptop). Cached re-runs pay about 0. Both are reported; the uncached number is
   what production would see without a cache.
 
-## Results
+## Results (llama3.1:8b on an Apple M5, paired bootstrap, 95% CI)
 
-Pending: needs Ollama with `llama3.1:8b` on the machine running the eval.
+| Split | `planner-rules` | `planner-llm` | Δ recall@5 | CI | better/worse | MRR Δ |
+| --- | --- | --- | --- | --- | --- | --- |
+| dev (n=96) | 0.484 | **0.583** | **+0.099** | [+0.031, +0.172] **significant** | 16/4 | +0.090 * |
+| test (n=54) | 0.481 | **0.546** | +0.065 | [-0.065, +0.194] n.s. | 11/5 | +0.105 * |
+
+- **Biggest gain is decomposition, as designed:** `evidence:multi` 0.262 → 0.524 (dev) and
+  0.357 → 0.536 (test). `type:domain-relevant` 0.309 → 0.515 (dev), where "what drove
+  X" gets searches like "AMD FY2022 revenue drivers".
+- **Latency:** planner p50 2.2 s, p95 3.2-3.6 s, max 4.5 s per question, uncached. With
+  the plan cache the planner stage costs ~0 ms (a cached re-run reproduced dev recall
+  exactly). Rules alone: ~16 ms end to end.
+- **Audit of all sub-queries:**
+  - No invented values. The only digits not from the question are "100" (a percentage
+    formula) and "10" (from "10-K").
+  - The model adds *prior years* for trend questions ("improving as of FY2022" → FY2020,
+    FY2021 searches). This is reasonable, and it only changes search text: filters
+    still come from the original question.
+- **Losses** (4 on dev, 5 on test) share one mechanism. RRF over 5-6 lists lets 3-4
+  agreeing sub-queries outvote the original question's correct page (e.g. JnJ "EPS
+  expected to accelerate in FY2023": the earnings release p0 was rank 1 for the
+  original, but sub-queries for FY2021-2023 EPS pulled in other pages).
+- **A bug found by the first run:** one question looped inside a JSON string ("…if
+  necessary, and to get correct revenue figure…") until the 120 s timeout, every time.
+  The fix is `maxLength` in the schema, which Ollama enforces in its grammar, plus
+  `num_predict` as a backstop. That question now takes 3.4 s and keeps its 3 good
+  sub-queries. The fingerprint now covers system prompt + schema, so the fix could
+  not reuse old plans. Runs before the fix (dev 0.589 with 1 timeout, test 0.537 with
+  2) are superseded.
+
+## Decision
+
+**Not the default yet.** `planner-rules` stays the default for the generation configs and
+`make data`. `planner-llm` is an opt-in config. Reasons:
+
+1. The gain is significant on dev, but recall@5 is not significant on held-out
+   companies (test, n=54).
+2. It adds ~2.3 s per uncached question and makes Ollama a hard dependency.
+
+Next ablations, one change each on dev:
+
+- **Weight the original list higher in RRF**, which targets the losses above.
+- LLM-extracted filters, kept separate (wrong-filter risk).
+- Try a stronger or faster local model.
+
+Re-run test only once a change is chosen.
 
 ## Test plan
 

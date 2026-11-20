@@ -51,7 +51,8 @@ def test_sub_queries_become_queries_with_the_original_filters() -> None:
     (prompt,) = llm.prompts
     assert prompt.system == PLANNER_SYSTEM
     assert prompt.user == f"Question: {QUESTION}"
-    assert prompt.response_schema == plan_schema(4)
+    assert prompt.response_schema == plan_schema(4, 200)
+    assert prompt.response_schema["properties"]["sub_queries"]["items"]["maxLength"] == 200
     assert (planner.calls, planner.failures) == (1, 0)
 
 
@@ -101,9 +102,14 @@ def test_cache_avoids_repeat_calls_survives_reload_and_skips_failures(tmp_path: 
 
 
 def test_cache_file_is_named_by_model_and_prompt(tmp_path: Path) -> None:
-    cache = PlanCache.for_model(tmp_path, "llama3.1:8b")
-    assert cache.path == tmp_path / f"llama3-1-8b-{prompt_fingerprint()}.json"
-    assert prompt_fingerprint("other prompt") != prompt_fingerprint()
+    schema = plan_schema(4, 200)
+    cache = PlanCache.for_model(tmp_path, "llama3.1:8b", schema)
+    assert cache.path == tmp_path / f"llama3-1-8b-{prompt_fingerprint(PLANNER_SYSTEM, schema)}.json"
+    assert prompt_fingerprint("other prompt", schema) != prompt_fingerprint(PLANNER_SYSTEM, schema)
+    # a schema change (e.g. a new length limit) must not reuse old plans
+    assert prompt_fingerprint(PLANNER_SYSTEM, plan_schema(4, 100)) != prompt_fingerprint(
+        PLANNER_SYSTEM, schema
+    )
 
 
 @pytest.mark.parametrize(("field", "value"), [("max_sub_queries", 0), ("max_chars", 0)])

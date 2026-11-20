@@ -18,7 +18,7 @@ from rag.indexing.vector_store import ExactVectorStore
 from rag.ingestion.factory import build_chunker
 from rag.retrieval.base import Retriever
 from rag.retrieval.factory import build_bm25_index, build_retriever
-from rag.retrieval.llm_planner import LLMQueryPlanner, PlanCache
+from rag.retrieval.llm_planner import LLMQueryPlanner, PlanCache, plan_schema
 
 
 @dataclass(frozen=True)
@@ -53,10 +53,14 @@ def build_planner(config: AppConfig) -> LLMQueryPlanner | None:
     if not planner.enabled:
         return None
     llm = OllamaLLMClient(
-        model=planner.model_id, base_url=planner.ollama_url, timeout_s=float(planner.timeout_s)
+        model=planner.model_id,
+        base_url=planner.ollama_url,
+        timeout_s=float(planner.timeout_s),
+        max_output_tokens=planner.max_output_tokens,
     )
+    schema = plan_schema(planner.max_sub_queries, planner.max_chars)
     cache = (
-        PlanCache.for_model(config.paths.planner_cache_dir, planner.model_id)
+        PlanCache.for_model(config.paths.planner_cache_dir, planner.model_id, schema)
         if planner.cache
         else None
     )

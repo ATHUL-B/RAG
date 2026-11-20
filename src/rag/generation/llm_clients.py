@@ -164,11 +164,16 @@ class OllamaLLMClient(LLMClient):
         base_url: str = "http://localhost:11434",
         timeout_s: float = 300.0,
         post_json: PostJson = urllib_post_json,
+        max_output_tokens: int | None = None,
     ) -> None:
+        """``max_output_tokens`` (Ollama ``num_predict``) bounds a runaway generation."""
+        if max_output_tokens is not None and max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be >= 1")
         self._model = model
         self._url = base_url.rstrip("/") + "/api/chat"
         self._timeout_s = timeout_s
         self._post_json = post_json
+        self._max_output_tokens = max_output_tokens
 
     @property
     def model_id(self) -> str:
@@ -184,6 +189,8 @@ class OllamaLLMClient(LLMClient):
             ],
             "options": {"temperature": 0},
         }
+        if self._max_output_tokens is not None:
+            payload["options"]["num_predict"] = self._max_output_tokens
         if prompt.response_schema is not None:
             payload["format"] = prompt.response_schema
         return payload

@@ -146,3 +146,11 @@ class TestOllamaPreflight:
 
         with pytest.raises(GenerationError, match=re.escape("ollama.com/download")):
             check_ollama_model("llama3.1:8b", base_url="http://localhost:11434", get_json=down)
+
+
+def test_ollama_output_cap_is_sent_as_num_predict() -> None:
+    capped = OllamaLLMClient(max_output_tokens=300).request_payload(PROMPT)
+    assert capped["options"] == {"temperature": 0, "num_predict": 300}
+    assert "num_predict" not in OllamaLLMClient().request_payload(PROMPT)["options"]
+    with pytest.raises(ValueError, match="max_output_tokens"):
+        OllamaLLMClient(max_output_tokens=0)

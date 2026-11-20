@@ -130,7 +130,9 @@ class LLMPlannerConfig(StrictConfig):
     timeout_s: PositiveInt = 120
     max_sub_queries: PositiveInt = 4
     max_chars: PositiveInt = 200
-    """Longest sub-query kept; longer ones are truncated."""
+    """Longest sub-query: enforced in the output schema, then truncated as a backstop."""
+    max_output_tokens: PositiveInt = 300
+    """Cap on planner output (Ollama ``num_predict``): a runaway plan fails fast."""
     cache: bool = True
     """Reuse plans from data/cache/planner/<model>-<prompt hash>.json (Part 7, rule 5)."""
 
