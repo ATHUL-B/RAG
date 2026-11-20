@@ -60,13 +60,14 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 - 91 of 26,264 chunks exceed bge's 512-token limit (sized with tiktoken; bge splits numbers
   more finely) and are truncated. Options: size chunks with the embedder's tokenizer, or
   lower chunk_size. Measure on the eval.
-- **Before any tuning** (RRF k/weights, BM25 k1/b, thresholds): split the golden set into
-  dev/test, tune on dev only. Tuning on all 150 questions overfits the evaluation.
+- ~~**Before any tuning**: split the golden set into dev/test, tune on dev only.~~ **Done
+  2026-11-20:** `evals/financebench-split.json` (96 dev / 54 test, grouped by company,
+  `rag.evaluation.splits`); scripts default to `--split dev`.
 - Hybrid: query-dependent weighting / routing (ID- and number-heavy questions → BM25), and
   stripping instruction boilerplate from questions before BM25 (Part 7).
 - **Statistical power:** 150 questions cannot resolve ~0.03 differences (every single step
-  in 3.2 is a tie). Grow the evaluation set (own questions in `evals/`, more datasets) and
-  add the dev/test split before further fine-grained ablations.
+  in 3.2 is a tie), and dev now has only 96. Grow the evaluation set (own questions in
+  `evals/` with hand-labelled evidence pages, more datasets) before fine-grained ablations.
 - Rerankers hurt even with context (HLD 009): investigate why (512-token truncation of
   context + chunk, header dominating the pair, web-trained models on tables); try
   bge-reranker-v2-m3 or an LLM reranker (Phase 2 provider) before giving up on Part 10.

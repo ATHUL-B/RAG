@@ -41,6 +41,10 @@ hybrid search + RRF). The learning-path checklist in Part 15 is the roadmap.
 - **No retrieval/generation change without an eval run.** Every change to
   chunking, embeddings, filters, fusion, reranking or prompts is accompanied by
   a golden-set run comparing before vs. after.
+- **Tune on dev, confirm on test.** Evaluation scripts default to the dev split
+  (`evals/financebench-split.json`, grouped by company). Run `--split test` rarely, to
+  confirm a change generalises; never choose settings by their test score, and never
+  regenerate the split after seeing test results.
 - **One change at a time** (ablation ladder, Part 13). Record each run in
   `experiments/LOG.md`: date, git SHA, config diff, recall@K, nDCG@K, MRR,
   faithfulness, refusal accuracy, p50/p95 latency, cost per query.

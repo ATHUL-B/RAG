@@ -23,10 +23,14 @@ config gives the same chunk IDs and the same index.
 make install    # dependencies
 make data       # download 84 PDFs (~160 MB), parse, chunk, embed with bge-small on CPU
 cp .env.example .env    # then put your ANTHROPIC_API_KEY in .env
-uv run python scripts/evaluate_retrieval.py --config configs/pages-context.yaml   # free
+uv run python scripts/evaluate_retrieval.py --config configs/pages-context.yaml   # free; dev split by default (--split test|all)
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --dry-run  # cost estimate
 uv run python scripts/evaluate_generation.py --config configs/generation-claude.yaml --limit 10 # ~$0.40
 ```
+
+Evaluation scripts use the **dev** split by default (`evals/financebench-split.json`,
+96 of the 150 questions). Tune on dev; run `--split test` only to confirm a change
+generalises (see `evals/README.md`).
 
 `make data` builds the current default config (`configs/pages-context.yaml`,
 which `generation-claude.yaml` shares). To build the data for another

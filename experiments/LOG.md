@@ -5,8 +5,14 @@ set version; report per segment where it differs from the overall picture.
 Use `scripts/compare_runs.py <run_a> <run_b>` for per-question differences with a 95%
 paired-bootstrap interval: with 150 questions, differences under ~0.05 are often noise.
 
+**From 2026-11-20 runs use the dev split** (`evals/financebench-split.json`: 96 dev / 54
+test questions, grouped by company). Rows before that are on all 150 questions; compare a
+dev run with them via `compare_runs.py`, which pairs on shared question IDs. Test is run
+rarely, to confirm a change, never to choose one.
+
 | Date | Exp | Git SHA | Config | Change vs. previous | Recall@5 | nDCG@5 | MRR | Faithfulness | Correctness | p50 / p95 ms | Cost / query | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-11-20 | `pages-context-dev-20261120T035001Z` | feat/dev-test-split | `configs/pages-context.yaml` | **Dev baseline** (no pipeline change): current default on the 96 dev questions | 0.427 | 0.351 | 0.360 | - | - | 8.5 / 12.1 | $0 | Reference row for all later dev ablations. Segments: `evidence:multi` 0.143 (n=21), `evidence:single` 0.507, `reasoning:logical-reasoning` 0.000 (n=9), `type:domain-relevant` 0.309, `type:metrics-generated` 0.550. Statuses: 38 hit, 6 partial, 51 not_retrieved, 1 filtered_out. With 96 questions only differences above ~0.07 will be significant. |
 | 2026-11-18 | `pages-context-rerank-20261118T101147Z` | feat/structural-chunking | `configs/pages-context-rerank.yaml` | vs pages-context: + bge-reranker-base | 0.343 | 0.252 | 0.252 | - | - | 1769 / 1968 | $0 | **Significantly worse** (−0.083, CI [−0.167, −0.003]; nDCG/MRR −0.087, significant). HLD 008 hypothesis ("context will rescue the reranker") **rejected**. |
 | 2026-11-18 | `pages-context-hybrid-20261118T100720Z` | feat/structural-chunking | `configs/pages-context-hybrid.yaml` | vs pages-context: + hybrid (RRF) | 0.437 | 0.321 | 0.308 | - | - | 12.9 / 16.8 | $0 | Tie (+0.010, CI [−0.060, +0.080]); pool_recall 0.870. **vs baseline: +0.163, CI [+0.087, +0.243], 37/11** (whole ladder significant). Not adopted (tie, extra latency). |
 | 2026-11-18 | `pages-context-20261118T100713Z` | feat/structural-chunking | `configs/pages-context.yaml` | vs pages: **context headers** (filing + page title block) on indexed text | **0.427** | 0.339 | 0.339 | - | - | 8.9 / 11.3 | $0 | +0.037 (CI [−0.037, +0.110], n.s.); recall@10 0.547. Segments: `type:domain-relevant` 0.18 → 0.36, but `type:metrics-generated` 0.67 → 0.50 and `evidence:multi` 0.357 → 0.200. Cumulative vs filters +0.050 (CI [−0.030, +0.133]). **New default** (consistent positive trend, cheap). |
