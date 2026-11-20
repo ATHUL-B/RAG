@@ -55,6 +55,10 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 ## Discovered / unscheduled
 
+- **Stronger generator via an LLM gateway (HLD 018):** client + runbook ready
+  (`docs/runbooks/gateway-generation-run.md`). Waiting on a collaborator's run folders;
+  then judge offline and compare with llama3.1:8b question by question.
+
 - **Generation (HLD 015):** citations land in `working`, almost never in `answer`; add a
   check (or prompt rule) for cited answers. Repetition loops inside `working` truncate the
   JSON (4-6 errors per run): add `maxLength` on the Ollama path. Error traces record 0

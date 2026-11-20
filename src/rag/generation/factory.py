@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import os
+
 from rag.config import GenerationConfig, LLMProvider
+from rag.errors import ConfigError
 from rag.generation.base import LLMClient
 from rag.generation.context import SourcesContextAssembler
 from rag.generation.generator import GroundedAnswerGenerator
-from rag.generation.llm_clients import AnthropicLLMClient, OllamaLLMClient
+from rag.generation.llm_clients import (
+    AnthropicLLMClient,
+    OllamaLLMClient,
+    OpenAICompatibleLLMClient,
+)
 
 
 def build_llm_client(config: GenerationConfig) -> LLMClient:
@@ -17,6 +24,20 @@ def build_llm_client(config: GenerationConfig) -> LLMClient:
                 max_tokens=config.max_tokens,
                 effort=str(config.effort),
                 refusal_fallbacks=config.refusal_fallbacks,
+            )
+        case LLMProvider.OPENAI_COMPATIBLE:
+            if config.model_id.startswith("<"):
+                raise ConfigError(f"set generation.model_id (still {config.model_id!r})")
+            base_url = os.environ.get(config.gateway_url_env, "")
+            if not base_url:
+                raise ConfigError(f"set {config.gateway_url_env} in .env (the gateway's base URL)")
+            return OpenAICompatibleLLMClient(
+                model=config.model_id,
+                base_url=base_url,
+                api_key=os.environ.get(config.gateway_key_env, ""),
+                key_header=config.gateway_key_header,
+                timeout_s=float(config.gateway_timeout_s),
+                max_tokens=config.max_tokens,
             )
         case LLMProvider.OLLAMA:
             return OllamaLLMClient(

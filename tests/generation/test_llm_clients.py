@@ -161,3 +161,106 @@ def test_ollama_context_window_is_sent_as_num_ctx() -> None:
     assert payload["options"]["num_ctx"] == 4096
     with pytest.raises(ValueError, match="context_tokens"):
         OllamaLLMClient(context_tokens=0)
+
+
+class TestOpenAICompatible:
+    @staticmethod
+    def _client(reply: dict[str, Any], **kw: Any) -> tuple[Any, list[dict[str, Any]]]:
+        calls: list[dict[str, Any]] = []
+
+        def post(
+            url: str, payload: dict[str, Any], timeout_s: float, headers: Any = None
+        ) -> dict[str, Any]:
+            calls.append({"url": url, "payload": payload, "headers": headers, "timeout": timeout_s})
+            return reply
+
+        from rag.generation.llm_clients import OpenAICompatibleLLMClient
+
+        client = OpenAICompatibleLLMClient(
+            model="gw-model", base_url="https://gw.test/v1/", post_json=post, **kw
+        )
+        return client, calls
+
+    @staticmethod
+    def _reply(
+        content: Any = '{"answerable": true, "working": "", "answer": "x"}', **message: Any
+    ) -> dict[str, Any]:
+        return {
+            "model": "provider/gw-model",
+            "choices": [{"message": {"content": content, **message}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 1500, "completion_tokens": 200},
+        }
+
+    def test_uses_response_format_json_schema_never_a_tool_call(self) -> None:
+        client, calls = self._client(self._reply(), api_key="k", max_tokens=777)
+        completion = client.complete(PROMPT)
+        (call,) = calls
+        assert call["url"] == "https://gw.test/v1/chat/completions"
+        payload = call["payload"]
+        assert payload["response_format"] == {
+            "type": "json_schema",
+            "json_schema": {"name": "grounded_answer", "schema": SCHEMA, "strict": True},
+        }
+        assert "tools" not in payload and "tool_choice" not in payload
+        assert payload["temperature"] == 0 and payload["max_tokens"] == 777
+        assert completion.text.startswith('{"answerable"')
+        assert (completion.input_tokens, completion.output_tokens) == (1500, 200)
+        assert completion.model_id == "provider/gw-model"
+
+    @pytest.mark.parametrize(
+        ("key", "header", "expected"),
+        [
+            ("k", "Authorization", {"Authorization": "Bearer k"}),
+            ("k", "x-bf-vk", {"x-bf-vk": "k"}),
+            ("", "Authorization", {}),
+        ],
+    )
+    def test_key_goes_in_the_configured_header(
+        self, key: str, header: str, expected: dict[str, str]
+    ) -> None:
+        client, calls = self._client(self._reply(), api_key=key, key_header=header)
+        client.complete(PROMPT)
+        assert calls[0]["headers"] == expected
+
+    def test_refusal_and_tool_calls_are_never_parsed_as_answers(self) -> None:
+        refused, _ = self._client(self._reply(content=None, refusal="I can't help with that"))
+        assert refused.complete(PROMPT).refused
+        tools, _ = self._client(self._reply(content=None, tool_calls=[{"id": "t"}]))
+        with pytest.raises(GenerationError, match="tool_calls instead of content"):
+            tools.complete(PROMPT)
+        broken, _ = self._client({"error": "bad model"})
+        with pytest.raises(GenerationError, match="unexpected response"):
+            broken.complete(PROMPT)
+
+    def test_rejects_bad_settings(self) -> None:
+        from rag.generation.llm_clients import OpenAICompatibleLLMClient
+
+        with pytest.raises(ValueError, match="base_url"):
+            OpenAICompatibleLLMClient(model="m", base_url="")
+        with pytest.raises(ValueError, match="max_tokens"):
+            OpenAICompatibleLLMClient(model="m", base_url="u", max_tokens=0)
+
+
+def test_http_errors_show_the_server_reason_but_never_the_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import io
+    import urllib.error
+    import urllib.request
+
+    from rag.generation.llm_clients import urllib_post_json
+
+    def fail(request: Any, timeout: float) -> Any:
+        raise urllib.error.HTTPError(
+            "https://gw.test",
+            400,
+            "Bad Request",
+            {},  # type: ignore[arg-type]
+            io.BytesIO(b'{"error": "response_format not supported"}'),
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", fail)
+    with pytest.raises(GenerationError) as info:
+        urllib_post_json("https://gw.test", {}, 1.0, headers={"x-bf-vk": "SECRET-KEY"})
+    assert "HTTP 400" in str(info.value) and "response_format not supported" in str(info.value)
+    assert "SECRET-KEY" not in str(info.value)
