@@ -22,8 +22,15 @@ from rag.config import LLMProvider, load_config
 from rag.config.env import load_env_file
 from rag.datasets.financebench import FinanceBenchDataset
 from rag.domain import Query
-from rag.evaluation.generation_runner import GenerationEvalRunner, Pricing, estimate_cost
+from rag.evaluation.generation_runner import (
+    AnswerOutcome,
+    GenerationEvalRunner,
+    GenerationRunResult,
+    Pricing,
+    estimate_cost,
+)
 from rag.evaluation.retrieval_report import OVERALL
+from rag.evaluation.retrieval_runner import indexed_units
 from rag.generation.context import SourcesContextAssembler
 from rag.generation.factory import build_generator
 from rag.ingestion.tokenization import TiktokenCounter
@@ -73,7 +80,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     runner = GenerationEvalRunner(
-        stack.retriever, build_generator(gen), pricing, depth=gen.max_sources
+        stack.retriever,
+        build_generator(gen),
+        pricing,
+        depth=gen.max_sources,
+        indexed=indexed_units(stack.store.chunks),
     )
     result = runner.run(items)
 
@@ -97,8 +108,20 @@ def main(argv: list[str] | None = None) -> int:
     if result.report is not None:
         overall = result.report.segments[OVERALL]
         print("  ".join(f"{name}={overall.means[name]:.2f}" for name in SHOWN))
+    if result.error_kinds:
+        print(f"errors by kind: {result.error_kinds}  (raw_output is in each trace)")
+    print_ladder(result)
     print(f"\ngenerations: {out / 'generations.jsonl'}")
     return 0
+
+
+def print_ladder(result: GenerationRunResult) -> None:
+    """Rows: how far the evidence got. Columns: what the model did (debugging ladder)."""
+    outcomes = [str(o) for o in AnswerOutcome]
+    print(f"\n{'evidence reach':<16}" + "".join(f"{o:>10}" for o in outcomes) + f"{'total':>8}")
+    for reach, counts in result.ladder.items():
+        cells = "".join(f"{counts.get(o, 0):>10}" for o in outcomes)
+        print(f"{reach:<16}{cells}{sum(counts.values()):>8}")
 
 
 if __name__ == "__main__":

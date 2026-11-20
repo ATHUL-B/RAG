@@ -54,6 +54,24 @@ metrics now:
 | `numeric_match` | for numeric reference answers: the answer contains the number (±1%); a cheap correctness proxy, not a judge |
 | tokens, cost, latency | per question and in total, from config pricing |
 
+### Output integrity and the ladder report (backlog 2.1a)
+
+Added after the first full run, where 78% of answers were lost in transit but scored as
+answers or refusals ([analysis](../../experiments/analysis/2026-11-19-first-generation-run.md)).
+
+- **Usable, not just schema-valid.** `answer_problem()` rejects an empty answer, a bare
+  `true`/`false`, and tool or transport markup (`<parameter …>`, `</invoke>`, `<br>`,
+  `<![CDATA[`). Refusals must explain too. Every failure raises `UnusableAnswerError`
+  with a `kind`, the model's exact `raw_output` and the prompt's chunk IDs.
+- **Raw output in every trace** (`raw_output`), errors included, plus `error_kind`
+  (`schema_mismatch`, `empty_answer`, `bare_boolean`, `markup_leak`, `api_error`).
+- **Ladder position per question.** `evidence_reach` is the first stage that lost the
+  evidence: `not_in_index` (rung 1) → `not_retrieved` (2) → `not_in_prompt` (4) →
+  `in_prompt`. `outcome` is what the model did: `error` / `refused` / `correct` / `wrong` /
+  `unscored` (text reference, waits for the 2.2 judges). The summary's `ladder` cross-tab
+  shows both, e.g. "in prompt but refused" = a generation problem, "not retrieved and
+  refused" = a correct refusal caused by retrieval.
+
 **Cost guard:** before calling a paid provider the script estimates cost (prompt tokens ×
 input price + expected output tokens × output price) and aborts if it exceeds `--budget-usd`
 (default $1).
