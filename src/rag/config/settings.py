@@ -34,6 +34,7 @@ class DatasetName(StrEnum):
 
 class ParserName(StrEnum):
     PYPDF = "pypdf"
+    PYPDF_LAYOUT = "pypdf-layout"  # layout mode: table rows stay on one line (HLD 021)
 
 
 class ChunkingStrategy(StrEnum):
@@ -54,8 +55,13 @@ class PathsConfig(StrictConfig):
 
     @property
     def parsed_dir(self) -> Path:
-        """Parsed ``Document`` artifacts, one JSON per document."""
+        """Parsed ``Document`` artifacts of the baseline parser, one JSON per document."""
         return self.processed_dir / "parsed"
+
+    def parsed_dir_for(self, parser: str) -> Path:
+        """Per-parser artifacts, so parsers can be compared side by side (HLD 021). The
+        baseline keeps its original directory, so existing artifacts stay valid."""
+        return self.parsed_dir if parser == "pypdf" else self.processed_dir / f"parsed-{parser}"
 
     @property
     def judge_cache_dir(self) -> Path:

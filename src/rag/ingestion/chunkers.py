@@ -38,6 +38,7 @@ class RecursiveChunker(Chunker):
         chunk_overlap: int = 0,
         separators: Sequence[str] = DEFAULT_SEPARATORS,
         respect_pages: bool = False,
+        source: str = "pypdf",
     ) -> None:
         if chunk_size < 1:
             raise ValueError("chunk_size must be >= 1")
@@ -50,6 +51,7 @@ class RecursiveChunker(Chunker):
         self._chunk_overlap = chunk_overlap
         self._separators = tuple(separators)
         self._respect_pages = respect_pages
+        self._source = source
 
     @cached_property
     def fingerprint(self) -> str:
@@ -62,6 +64,8 @@ class RecursiveChunker(Chunker):
         }
         if self._respect_pages:  # only when on: existing fingerprints (and indexes) stay valid
             settings["respect_pages"] = True
+        if self._source != "pypdf":  # the parser that produced the text (HLD 021)
+            settings["source"] = self._source
         return config_fingerprint(settings)
 
     def chunk(self, document: Document) -> list[Chunk]:

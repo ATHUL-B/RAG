@@ -29,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
-    fingerprint = build_chunker(config.chunking).fingerprint
+    fingerprint = build_chunker(config.chunking, parser=config.parsing.parser).fingerprint
     store = JsonArtifactStore(config.paths.chunks_dir(fingerprint), ChunkSet)
     chunks_by_doc = {doc_id: store.load(doc_id).chunks for doc_id in store.ids()}
     if not chunks_by_doc:

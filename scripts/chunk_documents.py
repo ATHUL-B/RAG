@@ -27,8 +27,8 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging()
 
     config = load_config(args.config)
-    chunker = build_chunker(config.chunking)
-    documents = JsonArtifactStore(config.paths.parsed_dir, Document)
+    chunker = build_chunker(config.chunking, parser=config.parsing.parser)
+    documents = JsonArtifactStore(config.paths.parsed_dir_for(config.parsing.parser), Document)
     chunk_sets = JsonArtifactStore(config.paths.chunks_dir(chunker.fingerprint), ChunkSet)
 
     started = time.perf_counter()

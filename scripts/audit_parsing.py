@@ -29,7 +29,7 @@ def main(argv: list[str] | None = None) -> int:
 
     config = load_config(args.config)
     items = FinanceBenchDataset(config.paths.raw_dir / "financebench").golden_items()
-    store = JsonArtifactStore(config.paths.parsed_dir, Document)
+    store = JsonArtifactStore(config.paths.parsed_dir_for(config.parsing.parser), Document)
     report = ParseAuditor(store, config.evaluation.parse_audit_min_coverage).audit(items)
 
     print(f"evidence spans: {len(report.rows)}  status: {report.status_counts}")

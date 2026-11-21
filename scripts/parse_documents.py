@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     stage = ParseStage(
         parser=build_parser(config.parsing),
         enricher=StaticMetadataEnricher(catalog),
-        store=JsonArtifactStore(config.paths.parsed_dir, Document),
+        store=JsonArtifactStore(config.paths.parsed_dir_for(config.parsing.parser), Document),
     )
     report = stage.run(sources, force=args.force)
 
