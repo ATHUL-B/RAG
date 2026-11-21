@@ -97,3 +97,28 @@ def ndcg_at_k(ranked: Sequence[str], qrels: Qrels, k: int) -> float:
         seen.add(doc_id)
     ideal = sorted((g for g in qrels.values() if g > 0), reverse=True)[:k]
     return _dcg(gains) / _dcg(ideal)
+
+
+def recall_at_token_budget(
+    ranked: Sequence[str], token_counts: Sequence[int], qrels: Qrels, budget: int
+) -> float:
+    """Recall over the longest prefix of the ranking whose chunks fit in ``budget`` tokens.
+
+    recall@k compares rankings at the same *number* of chunks, which is unfair across chunk
+    sizes: five 800-token chunks give the generator four times the text of five 200-token
+    chunks. The prompt is limited by tokens, not by chunk count, so this counts what fits
+    in the same token budget (HLD 022). A chunk that doesn't fit ends the prefix; it isn't
+    skipped, because the generator sees sources in rank order.
+    """
+    if budget < 1:
+        raise ValueError(f"budget must be >= 1, got {budget}")
+    if len(ranked) != len(token_counts):
+        raise ValueError("ranked and token_counts must have the same length")
+    relevant = _require_relevant(qrels)
+    used, kept = 0, []
+    for item, tokens in zip(ranked, token_counts, strict=True):
+        if used + tokens > budget:
+            break
+        used += tokens
+        kept.append(item)
+    return len(relevant & set(kept)) / len(relevant)

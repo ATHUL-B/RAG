@@ -1,0 +1,48 @@
+# Chunk-size sweep (guide Part 15; HLD 022): planner-rules with chunk_size 200, overlap 0 (0%).
+# Only change vs planner-rules.yaml: the lines marked <-. Judged on the dev split.
+experiment_name: chunks-200-o0
+dataset: financebench
+
+paths:
+  data_dir: data
+  runs_dir: runs
+
+parsing:
+  parser: pypdf
+
+chunking:
+  strategy: recursive
+  chunk_size: 200      # tokens  <- sweep
+  chunk_overlap: 0        # <- sweep
+  tokenizer: cl100k_base
+  respect_pages: true            # <- vs filters.yaml
+  context:                       # <- vs pages.yaml
+    enabled: true
+    document_fields: [company, doc_type, year]
+    page_title: true
+    max_title_lines: 8
+
+embedding:                 # ADR 0003
+  model_id: BAAI/bge-small-en-v1.5
+  revision: 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
+  query_prefix: "Represent this sentence for searching relevant passages: "
+  batch_size: 64
+  device: auto
+
+retrieval:
+  top_k: 5
+  filters:
+    enabled: true
+    fields: [company, year]
+    year_window: 0
+    relax_order: [year, company]
+    short_fiscal_years: true         # <- vs planner-clean.yaml
+    forward_looking_prior_year: true # <- vs planner-clean.yaml
+  rewrite:
+    strip_boilerplate: true
+    expand_abbreviations: true       # <- vs planner-clean.yaml
+    keep_original: true
+
+evaluation:
+  ks: [1, 2, 3, 5, 10, 20]   # deeper, for equal-token-budget recall (HLD 022)
+  parse_audit_min_coverage: 0.8
