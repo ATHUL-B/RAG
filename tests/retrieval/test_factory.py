@@ -123,3 +123,17 @@ def test_llm_rerank_needs_an_injected_reranker() -> None:
     assert isinstance(
         build_retriever(config, EMBEDDER, STORE, {}, reranker=reranker), RerankingRetriever
     )
+
+
+def test_parent_child_replaces_the_dense_first_stage() -> None:
+    from rag.config import ParentChildConfig
+    from rag.retrieval.parent_child import ParentChildRetriever
+
+    config = RetrievalConfig(parent_child=ParentChildConfig(enabled=True))
+    retriever = build_retriever(config, EMBEDDER, STORE, {}, children=(STORE, {}))
+    assert isinstance(retriever, ParentChildRetriever)
+    with pytest.raises(ConfigError, match="no child index"):
+        build_retriever(config, EMBEDDER, STORE, {})
+    hybrid = config.model_copy(update={"mode": RetrievalMode.HYBRID})
+    with pytest.raises(ConfigError, match="dense"):
+        build_retriever(hybrid, EMBEDDER, STORE, {}, children=(STORE, {}))

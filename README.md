@@ -61,6 +61,7 @@ uv run python scripts/evaluate_retrieval.py --config configs/planner-llm.yaml  #
 uv run python scripts/evaluate_retrieval.py --config configs/planner-llm-rerank-llm.yaml  # + local LLM reranker (best quality, ~27 s/question)
 uv run python scripts/evaluate_retrieval.py --config configs/planner-llm-rerank-llm-budget13.yaml  # balanced: 13 s rerank budget (~16 s/question, recall@5 0.688; HLD 020)
 # opt-in parser that keeps table rows on one line (HLD 021): parse/chunk/index once with `make data CONFIG=configs/planner-rules-layout.yaml`
+# opt-in parent-child retrieval (HLD 023): needs the 200-token child index first: `make data CONFIG=configs/chunks-200-o0.yaml`, then configs/planner-llm-rerank-llm-pc.yaml
 # default (no local model needed): configs/planner-rules.yaml; best quality: configs/planner-llm-rerank-llm.yaml (same chunks/index as pages-context.yaml)
 
 # Phase 2: answers with citations (needs ANTHROPIC_API_KEY in .env, see .env.example)

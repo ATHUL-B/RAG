@@ -9,9 +9,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from rag.config import AppConfig, LLMProvider, RerankerKind, RetrievalMode
+from rag.config import AppConfig, ChunkingConfig, LLMProvider, RerankerKind, RetrievalMode
 from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
-from rag.domain import GoldenItem
+from rag.domain import Chunk, GoldenItem
+from rag.errors import ConfigError
 from rag.evaluation.splits import SplitName, load_split, select
 from rag.generation.llm_clients import OllamaLLMClient, check_ollama_model
 from rag.indexing.factory import build_embedder, dense_index_dir
@@ -21,6 +22,7 @@ from rag.retrieval.base import Retriever
 from rag.retrieval.factory import build_bm25_index, build_retriever
 from rag.retrieval.llm_planner import LLMQueryPlanner, PlanCache, plan_schema
 from rag.retrieval.llm_reranker import GradeCache, GradeFormat, LLMPointwiseReranker
+from rag.retrieval.parent_child import map_children_to_parents
 
 ModelCheck = Callable[[str, str], None]
 
@@ -41,6 +43,7 @@ def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
         config, build_chunker(config.chunking, parser=config.parsing.parser).fingerprint
     )
     store = ExactVectorStore.load(index_dir, expected_model_id=embedder.model_id)
+    children = load_children(config, embedder.model_id, store) if _parent_child(config) else None
     keyword_index = (
         build_bm25_index(config.retrieval.bm25, store.chunks)
         if config.retrieval.mode is not RetrievalMode.DENSE
@@ -56,11 +59,40 @@ def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
         keyword_index,
         reranker=llm_reranker,
         planner=planner,
+        children=children,
     )
     embedder.embed_query("warm-up")  # load the model before any timed work
     return RetrievalStack(
         retriever=retriever, store=store, planner=planner, llm_reranker=llm_reranker
     )
+
+
+def _parent_child(config: AppConfig) -> bool:
+    return config.retrieval.parent_child.enabled
+
+
+def child_chunking(config: AppConfig) -> ChunkingConfig:
+    """The child chunks: the parents' chunking with the child size and overlap (HLD 023)."""
+    pc = config.retrieval.parent_child
+    return config.chunking.model_copy(
+        update={"chunk_size": pc.child_chunk_size, "chunk_overlap": pc.child_chunk_overlap}
+    )
+
+
+def load_children(
+    config: AppConfig, model_id: str, parents: ExactVectorStore
+) -> tuple[ExactVectorStore, dict[str, Chunk]]:
+    """The child index and the child → parent mapping. The child index must already exist
+    (``make data`` with a config whose chunking is :func:`child_chunking`)."""
+    fingerprint = build_chunker(child_chunking(config), parser=config.parsing.parser).fingerprint
+    index_dir = dense_index_dir(config, fingerprint)
+    if not index_dir.exists():
+        raise ConfigError(
+            f"parent_child needs the child index {index_dir}: build it with a config whose "
+            "chunking uses the child size and overlap (e.g. configs/chunks-200-o0.yaml)"
+        )
+    child_store = ExactVectorStore.load(index_dir, expected_model_id=model_id)
+    return child_store, map_children_to_parents(child_store.chunks, parents.chunks)
 
 
 def build_llm_reranker(config: AppConfig) -> LLMPointwiseReranker | None:

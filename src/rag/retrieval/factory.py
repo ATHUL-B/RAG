@@ -24,6 +24,7 @@ from rag.retrieval.fusion import ReciprocalRankFusion
 from rag.retrieval.hybrid import HybridRetriever
 from rag.retrieval.keyword import KeywordRetriever
 from rag.retrieval.multi_query import ORIGINAL, MultiQueryRetriever
+from rag.retrieval.parent_child import ParentChildRetriever
 from rag.retrieval.rerankers import CrossEncoderReranker, SentenceTransformersPairScorer
 from rag.retrieval.reranking import RerankingRetriever
 from rag.retrieval.rewriting import CompositeRewriter, RuleBasedRewriter
@@ -54,6 +55,7 @@ def build_retriever(
     keyword_index: KeywordIndex | None = None,
     reranker: Reranker | None = None,
     planner: QueryRewriter | None = None,
+    children: tuple[VectorStore, Mapping[str, Chunk]] | None = None,
 ) -> Retriever:
     """Compose: [filters] → [reranker] → [multi-query rewrite] → first stage.
 
@@ -61,7 +63,7 @@ def build_retriever(
     and every rewritten search uses the same ones. The reranker sits outside too, so it
     reorders the fused candidates against the original question.
     """
-    retriever = _base_retriever(config, embedder, store, keyword_index)
+    retriever = _base_retriever(config, embedder, store, keyword_index, children)
     rewrite = config.rewrite
     if rewrite.enabled:
         rewriters: list[QueryRewriter] = []
@@ -111,7 +113,17 @@ def _base_retriever(
     embedder: Embedder,
     store: VectorStore,
     keyword_index: KeywordIndex | None,
+    children: tuple[VectorStore, Mapping[str, Chunk]] | None = None,
 ) -> Retriever:
+    if config.parent_child.enabled:  # HLD 023: search children, return parents
+        if config.mode is not RetrievalMode.DENSE:
+            raise ConfigError("parent_child supports retrieval mode 'dense' only")
+        if children is None:
+            raise ConfigError("parent_child is enabled but no child index was given")
+        child_store, parent_of = children
+        return ParentChildRetriever(
+            DenseRetriever(embedder, child_store), parent_of, fanout=config.parent_child.fanout
+        )
     dense = DenseRetriever(embedder, store)
     if config.mode is RetrievalMode.DENSE:
         return dense
