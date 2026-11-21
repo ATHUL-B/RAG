@@ -85,6 +85,7 @@ def build_llm_reranker(config: AppConfig) -> LLMPointwiseReranker | None:
         cache=cache,
         concurrency=rerank.llm.concurrency,
         grade_format=grade_format,
+        time_budget_s=rerank.llm.time_budget_s,
     )
 
 

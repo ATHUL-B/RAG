@@ -235,3 +235,81 @@ def test_each_grade_format_has_its_own_cache_and_object_keeps_the_old_one(
     obj = GradeCache.for_model(tmp_path, "llama3.1:8b", GradeFormat.OBJECT)
     integer = GradeCache.for_model(tmp_path, "llama3.1:8b", GradeFormat.INTEGER)
     assert old.path == obj.path != integer.path
+
+
+class TickingClock:
+    """Each grading call advances time by ``per_call`` seconds (deterministic budget tests)."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+class TimedGrades(GradeByChunk):
+    def __init__(self, grades: dict[str, object], clock: TickingClock, per_call: float) -> None:
+        super().__init__(grades)
+        self._clock, self._per_call = clock, per_call
+
+    def complete(self, prompt: Prompt) -> Completion:
+        self._clock.now += self._per_call
+        return super().complete(prompt)
+
+
+def test_time_budget_stops_new_calls_and_keeps_first_stage_order_for_the_rest() -> None:
+    clock = TickingClock()
+    grades: dict[str, object] = {f"c{i}": g for i, g in enumerate([0, 1, 3, 3, 2, 3], start=1)}
+    llm = TimedGrades(grades, clock, per_call=1.0)
+    reranker = LLMPointwiseReranker(llm, time_budget_s=2.5, clock=clock)
+    candidates = [_candidate(i) for i in range(1, 7)]
+    ranked = reranker.rerank(Query(text=QUESTION), candidates, top_n=6)
+    # calls start at t=0, 1, 2 (< 2.5); at t=3 the budget is spent: c4..c6 stay ungraded
+    assert reranker.calls == 3
+    assert _ids(ranked) == ["c3", "c2", "c1", "c4", "c5", "c6"]
+    assert [c.stage for c in ranked] == [STAGE, STAGE, STAGE, "rrf", "rrf", "rrf"]
+    assert ranked[3].score == candidates[3].score  # ungraded keeps its first-stage score
+    assert [c.rank for c in ranked] == [1, 2, 3, 4, 5, 6]
+    assert (reranker.budget_cutoffs, reranker.ungraded) == (1, 3)
+    assert reranker.last_degradation == ("rerank_budget: graded 3/6, rest in first-stage order")
+
+
+def test_cached_grades_are_free_under_a_budget(tmp_path: Path) -> None:
+    clock = TickingClock()
+    cache = GradeCache(tmp_path / "g.json")
+    cache.put(QUESTION, "c3", 3)
+    llm = TimedGrades({"c1": 0, "c2": 2}, clock, per_call=1.0)
+    reranker = LLMPointwiseReranker(llm, cache=cache, time_budget_s=0.5, clock=clock)
+    ranked = reranker.rerank(Query(text=QUESTION), [_candidate(i) for i in range(1, 4)], 3)
+    assert reranker.calls == 1  # one call starts at t=0, then the budget is spent
+    assert _ids(ranked) == ["c3", "c1", "c2"]  # graded (c3 cached, c1 called), then c2
+    assert reranker.last_degradation is not None
+
+
+def test_budget_not_reached_means_no_degradation() -> None:
+    clock = TickingClock()
+    llm = TimedGrades({"c1": 0, "c2": 3}, clock, per_call=1.0)
+    reranker = LLMPointwiseReranker(llm, time_budget_s=60, clock=clock)
+    ranked = reranker.rerank(Query(text=QUESTION), [_candidate(1), _candidate(2)], 2)
+    assert _ids(ranked) == ["c2", "c1"]
+    assert reranker.last_degradation is None and reranker.budget_cutoffs == 0
+
+
+def test_budget_applies_between_concurrent_batches() -> None:
+    clock = TickingClock()
+    grades: dict[str, object] = {f"c{i}": 1 for i in range(1, 7)}
+    llm = TimedGrades(grades, clock, per_call=0.5)  # a batch of 2 advances 1.0 s
+    reranker = LLMPointwiseReranker(llm, concurrency=2, time_budget_s=1.5, clock=clock)
+    reranker.rerank(Query(text=QUESTION), [_candidate(i) for i in range(1, 7)], 6)
+    assert reranker.calls == 4  # batches start at t=0 and t=1.0; at t=2.0 it stops
+
+
+def test_failure_is_reported_as_a_degradation() -> None:
+    reranker = LLMPointwiseReranker(GradeByChunk({"c1": GenerationError("down")}))
+    reranker.rerank(Query(text=QUESTION), [_candidate(1)], 1)
+    assert reranker.last_degradation == "rerank_failed: first-stage order"
+
+
+def test_rejects_non_positive_budget() -> None:
+    with pytest.raises(ValueError, match="time_budget_s"):
+        LLMPointwiseReranker(GradeByChunk({}), time_budget_s=0)

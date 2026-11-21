@@ -95,3 +95,18 @@ def test_depth_is_at_least_k_and_must_be_positive() -> None:
     assert inner.calls[0][1] == 10
     with pytest.raises(ValueError, match="depth"):
         RerankingRetriever(inner, ReverseReranker(), depth=0)
+
+
+class CutShort(ReverseReranker):
+    @property
+    def last_degradation(self) -> str | None:
+        return "rerank_budget: graded 2/5, rest in first-stage order"
+
+
+def test_reranker_degradation_is_carried_into_the_result_for_the_trace() -> None:
+    result = RerankingRetriever(FirstStage(), CutShort(), depth=5).retrieve(Query(text="q"), 3)
+    assert result.degraded == ("rerank_budget: graded 2/5, rest in first-stage order",)
+    plain = RerankingRetriever(FirstStage(), ReverseReranker(), depth=5).retrieve(
+        Query(text="q"), 3
+    )
+    assert plain.degraded == ()

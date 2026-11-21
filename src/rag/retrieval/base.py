@@ -26,6 +26,9 @@ class RetrievalResult(BaseModel):
     """Wall-clock milliseconds of internal stages (e.g. "first_stage", "rerank")."""
     queries: tuple[str, ...] = ()
     """The search texts actually used, when a rewriter changed them (Part 7)."""
+    degraded: tuple[str, ...] = ()
+    """Stages that fell back or were cut short (Part 14: graceful degradation), e.g.
+    "rerank_budget: graded 12/20, …". Empty when every stage ran in full."""
 
 
 class QueryRewriter(ABC):
@@ -63,3 +66,8 @@ class Reranker(ABC):
     def rerank(
         self, query: Query, candidates: Sequence[ScoredChunk], top_n: int
     ) -> list[ScoredChunk]: ...
+
+    @property
+    def last_degradation(self) -> str | None:
+        """Why the last ``rerank`` call did not run in full (a fallback or a cut-off), if so."""
+        return None
