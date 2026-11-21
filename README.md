@@ -8,7 +8,9 @@ Contributor/agent guidance: `CLAUDE.md`. Design docs: `docs/` (start with
 was built, why, and how to read the code, then
 [`docs/walkthroughs/phase-3-improvements.md`](docs/walkthroughs/phase-3-improvements.md) and
 [part 2](docs/walkthroughs/phase-3-part-2-planning-and-reranking.md) for how retrieval was
-improved one measured change at a time.
+improved one measured change at a time, and
+[`docs/walkthroughs/phase-2-generation.md`](docs/walkthroughs/phase-2-generation.md) for how
+answers are generated, checked, judged and refused.
 
 ## Setup
 
