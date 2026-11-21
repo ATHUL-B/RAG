@@ -225,18 +225,65 @@ class TestOpenAICompatible:
     def test_no_content_error_reports_response_diagnostics(self) -> None:
         reply = {
             "choices": [
-                {
-                    "message": {"role": "assistant", "content": None},
-                    "finish_reason": "content_filter",
-                }
+                {"message": {"role": "assistant", "content": None}, "finish_reason": "stop"}
             ]
         }
         client, _ = self._client(reply)
         with pytest.raises(
             GenerationError,
-            match=r"finish_reason=content_filter, message_fields=content,role, refusal=absent",
+            match=r"finish_reason=stop, message_fields=content,role, refusal=absent",
         ):
             client.complete(PROMPT)
+
+    @staticmethod
+    def _sequence(*replies: dict[str, Any], **kw: Any) -> tuple[Any, list[dict[str, Any]]]:
+        calls: list[dict[str, Any]] = []
+        queue = list(replies)
+
+        def post(
+            url: str, payload: dict[str, Any], timeout_s: float, headers: Any = None
+        ) -> dict[str, Any]:
+            calls.append(payload)
+            return queue.pop(0)
+
+        from rag.generation.llm_clients import OpenAICompatibleLLMClient
+
+        client = OpenAICompatibleLLMClient(
+            model="gw-model", base_url="https://gw.test/v1", post_json=post, **kw
+        )
+        return client, calls
+
+    def _filtered(self, content: Any = '{"answerable": true, "work') -> dict[str, Any]:
+        reply = self._reply(content)
+        reply["choices"][0]["finish_reason"] = "content_filter"
+        reply["usage"] = {"prompt_tokens": 1500, "completion_tokens": 30}
+        return reply
+
+    def test_content_filter_is_retried_and_all_attempts_are_billed(self) -> None:
+        client, calls = self._sequence(
+            self._filtered(), self._filtered(None), self._reply(), filter_retries=2
+        )
+        completion = client.complete(PROMPT)
+        assert len(calls) == 3
+        assert completion.stop_reason == "stop"
+        assert completion.text.startswith('{"answerable": true, "working"')
+        assert (completion.input_tokens, completion.output_tokens) == (4500, 260)
+
+    def test_filtered_after_all_retries_returns_the_filtered_reply(self) -> None:
+        client, calls = self._sequence(self._filtered(), self._filtered(None), filter_retries=1)
+        completion = client.complete(PROMPT)
+        assert len(calls) == 2
+        assert completion.stop_reason == "content_filter" and completion.text == ""
+        assert completion.output_tokens == 60
+
+    def test_no_retry_by_default_and_none_on_success(self) -> None:
+        client, calls = self._sequence(self._filtered())
+        assert client.complete(PROMPT).stop_reason == "content_filter"
+        client, calls = self._sequence(self._reply(), filter_retries=2)
+        client.complete(PROMPT)
+        assert len(calls) == 1
+        with pytest.raises(ValueError, match="filter_retries"):
+            self._sequence(filter_retries=-1)
 
     @pytest.mark.parametrize(
         ("key", "header", "expected"),

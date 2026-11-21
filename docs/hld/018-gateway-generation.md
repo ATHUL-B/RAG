@@ -43,3 +43,20 @@ llama3.1:8b), 3 dev questions:
 - cost computed from the configured price.
 
 A real gateway still has to pass the runbook's smoke test.
+
+## Update (2026-11-21): Bifrost → Bedrock Claude Sonnet 5.5 (PR #27 and follow-up)
+
+An external smoke run found three route-specific problems. Each is now a config switch, so
+other gateways keep the default behaviour:
+
+| Finding (probes in `experiments/analysis/2026-11-20-bifrost-gateway-smoke.md`) | Fix |
+| --- | --- |
+| `temperature: 0` rejected (HTTP 400) | `gateway_temperature: null` omits it (PR #27) |
+| Any request with `response_format` is filtered, even "say hello" (0 output tokens) | `gateway_use_response_format: false` puts the schema in the system prompt; the parser still validates (PR #27) |
+| Without `response_format`, the filter still cuts off some answers *intermittently*: one question passed and failed on identical retries (prose 6/6, JSON 5/6, tagged 4/6) | Retry on `finish_reason=content_filter` (`gateway_filter_retries`, default 2), all attempts billed. A reply still filtered becomes error kind `content_filtered`, no longer mislabelled `schema_mismatch` |
+
+**Effect on the comparison:** the schema-in-prompt variant is a small prompt difference
+from the local runs (recorded with the results). Questions lost to the filter are counted
+and listed. The quality comparison is made on the questions both generators answered, and
+the filtered count is reported next to it, so a filter that skips hard questions cannot
+make the model look better.

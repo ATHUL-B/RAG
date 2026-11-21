@@ -29,6 +29,8 @@ SCHEMA_MISMATCH = "schema_mismatch"
 EMPTY_ANSWER = "empty_answer"
 BARE_BOOLEAN = "bare_boolean"
 MARKUP_LEAK = "markup_leak"
+CONTENT_FILTERED = "content_filtered"
+"""A provider-side content filter blocked or cut off the reply (not the model's answer)."""
 
 
 def answer_problem(text: str) -> str | None:
@@ -104,6 +106,8 @@ def _parse(completion: Completion, prompt: Prompt) -> tuple[bool, str, str]:
     silently scored as an answer or a refusal.
     """
     working = ""
+    if completion.stop_reason == "content_filter":  # cut off upstream: partial JSON or empty
+        raise _unusable(completion, prompt, CONTENT_FILTERED)
     if prompt.response_schema is None:
         answerable, text = True, completion.text.strip()
     else:

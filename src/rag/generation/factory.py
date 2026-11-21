@@ -40,6 +40,7 @@ def build_llm_client(config: GenerationConfig) -> LLMClient:
                 max_tokens=config.max_tokens,
                 temperature=config.gateway_temperature,
                 use_response_format=config.gateway_use_response_format,
+                filter_retries=config.gateway_filter_retries,
             )
         case LLMProvider.OLLAMA:
             return OllamaLLMClient(
