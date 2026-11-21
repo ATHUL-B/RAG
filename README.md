@@ -10,7 +10,9 @@ was built, why, and how to read the code, then
 [part 2](docs/walkthroughs/phase-3-part-2-planning-and-reranking.md) for how retrieval was
 improved one measured change at a time, and
 [`docs/walkthroughs/phase-2-generation.md`](docs/walkthroughs/phase-2-generation.md) for how
-answers are generated, checked, judged and refused.
+answers are generated, checked, judged and refused, and
+[`docs/walkthroughs/phase-4-latency-and-ingestion-experiments.md`](docs/walkthroughs/phase-4-latency-and-ingestion-experiments.md)
+for the latency budget, rerank time limits, table parsing, chunk sizes and parent-child retrieval.
 
 ## Setup
 
