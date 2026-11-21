@@ -48,6 +48,12 @@ def main(argv: list[str] | None = None) -> int:
         default=SplitName.DEV,
         help="dev (default, for tuning), test (held out: confirm, never tune) or all",
     )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="first N questions of the split only (0 = all); for latency runs (HLD 019)",
+    )
     args = parser.parse_args(argv)
 
     config = load_config(args.config)
@@ -59,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     stack = load_retrieval_stack(config)
     store = stack.store
     items = load_golden_items(config, args.split)
+    items = items[: args.limit] if args.limit > 0 else items
     top_k = config.retrieval.top_k
     runner = RetrievalEvalRunner(
         retriever=stack.retriever,

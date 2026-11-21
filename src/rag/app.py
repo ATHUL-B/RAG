@@ -20,7 +20,7 @@ from rag.ingestion.factory import build_chunker
 from rag.retrieval.base import Retriever
 from rag.retrieval.factory import build_bm25_index, build_retriever
 from rag.retrieval.llm_planner import LLMQueryPlanner, PlanCache, plan_schema
-from rag.retrieval.llm_reranker import GradeCache, LLMPointwiseReranker
+from rag.retrieval.llm_reranker import GradeCache, GradeFormat, LLMPointwiseReranker
 
 ModelCheck = Callable[[str, str], None]
 
@@ -73,12 +73,19 @@ def build_llm_reranker(config: AppConfig) -> LLMPointwiseReranker | None:
         max_output_tokens=rerank.llm.max_output_tokens,
         context_tokens=rerank.llm.context_tokens,
     )
+    grade_format = GradeFormat(rerank.llm.grade_format)
     cache = (
-        GradeCache.for_model(config.paths.rerank_cache_dir, rerank.llm.model_id)
+        GradeCache.for_model(config.paths.rerank_cache_dir, rerank.llm.model_id, grade_format)
         if rerank.llm.cache
         else None
     )
-    return LLMPointwiseReranker(llm, max_passage_chars=rerank.llm.max_passage_chars, cache=cache)
+    return LLMPointwiseReranker(
+        llm,
+        max_passage_chars=rerank.llm.max_passage_chars,
+        cache=cache,
+        concurrency=rerank.llm.concurrency,
+        grade_format=grade_format,
+    )
 
 
 def build_planner(config: AppConfig) -> LLMQueryPlanner | None:
