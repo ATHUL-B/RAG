@@ -201,7 +201,7 @@ The run looked 96% valid and was 22% usable. This is the most important lesson o
 
 **`generation/generator.py`: `answer_problem()`**
 
-```python
+```text
 def answer_problem(text: str) -> str | None:
     stripped = text.strip()
     if not stripped:                              return EMPTY_ANSWER
@@ -219,7 +219,7 @@ def answer_problem(text: str) -> str | None:
 
 **`evaluation/generation_runner.py`: two axes per question**
 
-```python
+```text
 class EvidenceReach(StrEnum):   # how far the evidence got (first stage that lost it)
     NOT_IN_INDEX, NOT_RETRIEVED, NOT_IN_PROMPT, IN_PROMPT, NO_EVIDENCE
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, model_validator
 
@@ -219,6 +219,12 @@ class LLMRerankConfig(StrictConfig):
     max_output_tokens: PositiveInt = 20
     cache: bool = True
     """Reuse grades from data/cache/rerank/<model>-<prompt hash>.json."""
+    grade_format: Literal["object", "integer"] = "object"
+    """``object`` writes {"grade": 3} (HLD 014); ``integer`` writes a bare 3, ~350 ms
+    faster per call (HLD 019). Each format has its own grade cache."""
+    concurrency: PositiveInt = 1
+    """Grading calls in flight at once (HLD 019). Helps only if the server has parallel
+    slots (``OLLAMA_NUM_PARALLEL > 1``); a single-slot Ollama just queues them."""
 
 
 class RerankConfig(StrictConfig):

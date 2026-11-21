@@ -130,3 +130,108 @@ def test_cache_file_is_named_by_model_and_grader_fingerprint(tmp_path: Path) -> 
 def test_rejects_bad_passage_limit() -> None:
     with pytest.raises(ValueError, match="max_passage_chars"):
         LLMPointwiseReranker(GradeByChunk({}), max_passage_chars=0)
+
+
+class SlowGrades(GradeByChunk):
+    """Records how many calls overlap, to prove grading runs concurrently."""
+
+    def __init__(self, grades: dict[str, object]) -> None:
+        super().__init__(grades)
+        import threading
+
+        self._lock = threading.Lock()
+        self._active = 0
+        self.max_active = 0
+
+    def complete(self, prompt: Prompt) -> Completion:
+        import time
+
+        with self._lock:
+            self._active += 1
+            self.max_active = max(self.max_active, self._active)
+        time.sleep(0.02)
+        try:
+            return super().complete(prompt)
+        finally:
+            with self._lock:
+                self._active -= 1
+
+
+def test_concurrent_grading_gives_the_same_ranking_as_sequential() -> None:
+    grades: dict[str, object] = {f"c{i}": g for i, g in enumerate([0, 3, 1, 3, 2, 0], start=1)}
+    candidates = [_candidate(i) for i in range(1, 7)]
+    sequential = LLMPointwiseReranker(GradeByChunk(grades)).rerank(
+        Query(text=QUESTION), candidates, 4
+    )
+    llm = SlowGrades(grades)
+    reranker = LLMPointwiseReranker(llm, concurrency=3)
+    concurrent = reranker.rerank(Query(text=QUESTION), candidates, 4)
+    assert concurrent == sequential
+    assert _ids(concurrent) == ["c2", "c4", "c5", "c3"]
+    assert llm.max_active > 1 and reranker.calls == 6
+
+
+def test_concurrent_failure_falls_back_and_caches_only_good_grades(tmp_path: Path) -> None:
+    cache = GradeCache(tmp_path / "g.json")
+    llm = GradeByChunk({"c1": 2, "c2": GenerationError("down"), "c3": 3})
+    reranker = LLMPointwiseReranker(llm, cache=cache, concurrency=4)
+    candidates = [_candidate(i) for i in range(1, 4)]
+    assert reranker.rerank(Query(text=QUESTION), candidates, 2) == candidates[:2]
+    assert reranker.failures == 1 and reranker.calls == 3
+    assert cache.get(QUESTION, "c1") == 2 and cache.get(QUESTION, "c2") is None
+
+
+def test_only_missing_grades_are_requested(tmp_path: Path) -> None:
+    cache = GradeCache(tmp_path / "g.json")
+    cache.put(QUESTION, "c1", 3)
+    llm = GradeByChunk({"c2": 1, "c3": 0})
+    reranker = LLMPointwiseReranker(llm, cache=cache, concurrency=2)
+    ranked = reranker.rerank(Query(text=QUESTION), [_candidate(i) for i in range(1, 4)], 3)
+    assert _ids(ranked) == ["c1", "c2", "c3"]
+    assert (reranker.calls, reranker.cache_hits) == (2, 1)
+    assert sorted(p.chunk_ids[0] for p in llm.prompts) == ["c2", "c3"]
+
+
+def test_rejects_bad_concurrency() -> None:
+    with pytest.raises(ValueError, match="concurrency"):
+        LLMPointwiseReranker(GradeByChunk({}), concurrency=0)
+
+
+class IntegerGrades(GradeByChunk):
+    def complete(self, prompt: Prompt) -> Completion:
+        self.prompts.append(prompt)
+        reply = self._grades[prompt.chunk_ids[0]]
+        return Completion(text=json.dumps(reply), model_id="fake", input_tokens=1, output_tokens=1)
+
+
+def test_integer_grade_format_asks_for_a_bare_integer_and_ranks_the_same() -> None:
+    from rag.retrieval.llm_reranker import INTEGER_GRADE_SCHEMA, GradeFormat
+
+    llm = IntegerGrades({"c1": 0, "c2": 3, "c3": 2})
+    reranker = LLMPointwiseReranker(llm, grade_format=GradeFormat.INTEGER)
+    ranked = reranker.rerank(Query(text=QUESTION), [_candidate(i) for i in range(1, 4)], 3)
+    assert _ids(ranked) == ["c2", "c3", "c1"]
+    assert llm.prompts[0].response_schema == INTEGER_GRADE_SCHEMA
+    assert llm.prompts[0].user == grader_user_message(QUESTION, _candidate(1), 3000)
+
+
+@pytest.mark.parametrize("bad", [True, 7, "x", {"grade": 3}])
+def test_integer_format_rejects_booleans_and_other_shapes(bad: object) -> None:
+    from rag.retrieval.llm_reranker import GradeFormat
+
+    llm = IntegerGrades({"c1": bad, "c2": 1})
+    reranker = LLMPointwiseReranker(llm, grade_format=GradeFormat.INTEGER)
+    candidates = [_candidate(1), _candidate(2)]
+    assert reranker.rerank(Query(text=QUESTION), candidates, 2) == candidates
+    assert reranker.failures == 1
+
+
+def test_each_grade_format_has_its_own_cache_and_object_keeps_the_old_one(
+    tmp_path: Path,
+) -> None:
+    from rag.retrieval.llm_reranker import GradeFormat
+
+    old = GradeCache.for_model(tmp_path, "llama3.1:8b")
+    obj = GradeCache.for_model(tmp_path, "llama3.1:8b", GradeFormat.OBJECT)
+    integer = GradeCache.for_model(tmp_path, "llama3.1:8b", GradeFormat.INTEGER)
+    assert old.path == obj.path != integer.path

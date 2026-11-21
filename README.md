@@ -53,6 +53,7 @@ uv run python scripts/audit_chunking.py    # how much evidence fits in a single 
 uv run python scripts/build_index.py       # embed chunks (bge-small, local) -> data/indexes/dense/
 uv run python scripts/evaluate_retrieval.py  # recall@K, nDCG, MRR per segment + traces in runs/
 uv run python scripts/evaluate_retrieval.py --config configs/filters.yaml  # ablation: metadata filters
+uv run python scripts/evaluate_retrieval.py --config <config with llm cache: false> --limit 24  # cold latency run (HLD 019); keep the Mac awake: caffeinate -dims
 uv run python scripts/evaluate_retrieval.py --config configs/hybrid.yaml   # ablation: dense + BM25 (RRF)
 uv run python scripts/evaluate_retrieval.py --config configs/rerank-bge.yaml  # ablation: + cross-encoder
 uv run python scripts/evaluate_retrieval.py --config configs/planner-clean.yaml  # ablation: + query cleanup (HLD 011)
