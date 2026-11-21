@@ -1,4 +1,4 @@
-# Bifrost gateway smoke: debugging notes (2026-11-20)
+# Bifrost gateway smoke: debugging notes (2026-11-20–21)
 
 **Baseline:** `adfc7c4` (the clean `main` baseline before these changes)
 
@@ -11,8 +11,8 @@ quality evaluation. No full evaluation was started.
 - `make install` completed.
 - `make data` found the 84 PDFs, parsed documents, chunks, and dense index already present;
   all ingestion steps were skipped.
-- `make check` passed before the client changes: formatting/lint/type checks passed and
-  529 tests passed (3 deselected).
+- `make check` after the code changes: formatting/lint/type checks passed and 534 tests
+  passed (3 deselected).
 - The dev dry run assembled all 96 prompts and estimated cost at up to **$1.23** using the
   local Sonnet pricing configuration. It sent no model requests.
 - The three-question smoke estimate was up to **$0.04** under the runbook's $1 cap.
@@ -32,19 +32,32 @@ After omitting `temperature`, the next three-question smoke still had **3 errors
 | `financebench_id_07966` | `schema_mismatch` | `finish_reason=content_filter`; raw text was `{}` |
 | `financebench_id_04735` | `api_error` | Initially recorded as “gateway returned no content” |
 
-A one-question diagnostic retry for `financebench_id_02987` confirmed the response had
-`finish_reason=content_filter`, message fields `content,role`, and no refusal field. The
-client now preserves these safe metadata in its error message; it does not log response
+A four-case diagnostic probe isolated the schema path. It printed metadata only and made
+no reply text or credentials visible:
+
+| Probe | Finish | Content chars | Input / output tokens | Request ID |
+| --- | --- | ---: | ---: | --- |
+| Hello, no schema | `stop` | 34 | 24 / 17 | `bb7b7118-7147-4e8a-8ca6-c836db56bf92` |
+| Hello, JSON schema | `content_filter` | 0 | 563 / 0 | `494e8b52-c34b-46d2-a17a-d012f27322b0` |
+| FinanceBench prompt, no schema | `stop` | 678 | 3440 / 326 | `304c6040-41a7-46ee-84f0-b57d861694ce` |
+| Same FinanceBench prompt, JSON schema | `content_filter` | 0 | 3954 / 0 | `e45cf941-7df1-4b48-867e-1ea30132415a` |
+
+Both no-schema controls completed, while both schema requests were filtered. This isolates
+the failure to the JSON-schema `response_format` path (likely its Bifrost/Bedrock
+translation), rather than the route alone or SEC prompt content. It does not prove which
+component emitted the filter. The client now supports a config option to place the schema
+in the system prompt and omit `response_format`; its existing parser still validates the
+JSON.
+
+At the configured $2/M input and $10/M output rates, the probe usage estimates to about
+**$0.0194**, above the review comment's under-$0.01 estimate. The client does not log reply
 text or credentials.
 
 ## Interpretation and limits
 
-The observed failure is upstream content filtering: the response carries a
-`content_filter` finish reason and no usable content. The response does not identify the
-policy trigger. The diagnostic did not capture provider request IDs or a detailed filter
-reason, so this cannot be attributed to a specific term, prompt component, or policy.
-The third question's no-content response was not separately retried after adding the
-diagnostic.
+The observed failure is filtering on the schema requests. The gateway did not expose a
+detailed filter reason, so this cannot be attributed to a specific term, prompt component,
+or policy.
 
 The runner recorded zero tokens and zero cost because the failed responses did not provide
 usage counts. This is **not** evidence that the gateway incurred no charge. No accuracy,
@@ -59,7 +72,25 @@ Per the runbook's smoke-test stop point, neither the 96-question dev run nor the
 
 ## Follow-up
 
-Ask the Bifrost/Bedrock owner to inspect the upstream filter event for the diagnostic
-request and advise whether this model/route can answer FinanceBench prompts. Once the
-filter behavior is understood, rerun the 3-question smoke and proceed to full runs only if
-the runbook's pass criteria are met.
+The two filtered request IDs are `494e8b52-c34b-46d2-a17a-d012f27322b0` and
+`e45cf941-7df1-4b48-867e-1ea30132415a`. Ask the Bifrost/Bedrock owner to inspect these
+events.
+
+### 2026-11-21: rerun without `response_format`
+
+Following review feedback, the gateway client gained `gateway_use_response_format: false`.
+It places the JSON schema in the system message instead of sending the OpenAI-compatible
+`response_format` field; the answer parser still validates JSON shape and usability.
+
+The four-case probe's no-schema controls succeeded, while both schema requests filtered.
+The runbook smoke was then repeated with `gateway_use_response_format: false` and still did
+not pass: 1/3 answers was usable and numerically correct; the other 2/3 returned partial
+JSON with `finish_reason=content_filter` and were rejected as schema mismatches. The
+successful answer used 3,654 input and 250 output tokens, costing $0.009808 at the
+configured rates. The failed traces contain no usage counts, so their cost is unknown.
+
+This confirms the JSON-schema `response_format` path filters even benign and real prompts,
+but it does not explain the two remaining filters without that field. Paired no-schema
+probes for those two questions, without the schema instruction, would be needed to isolate
+prompt-content filtering from model-output filtering. Per the runbook, no full evaluation
+was started.

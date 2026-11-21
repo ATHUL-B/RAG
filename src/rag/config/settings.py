@@ -301,6 +301,8 @@ class GenerationConfig(StrictConfig):
     """Header the key goes in: ``Authorization`` (Bearer) or a gateway's own, e.g. ``x-bf-vk``."""
     gateway_temperature: float | None = 0.0
     """OpenAI-compatible sampling temperature; set to null for models that reject it."""
+    gateway_use_response_format: bool = True
+    """Use JSON-schema response_format; disable if the gateway rejects or filters it."""
     gateway_timeout_s: PositiveInt = 300
     pricing: PricingConfig = PricingConfig()
     expected_output_tokens: PositiveInt = 1500

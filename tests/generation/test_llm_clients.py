@@ -213,6 +213,15 @@ class TestOpenAICompatible:
         (call,) = calls
         assert "temperature" not in call["payload"]
 
+    def test_can_request_json_with_schema_instructions_not_response_format(self) -> None:
+        client, calls = self._client(self._reply(), use_response_format=False)
+        client.complete(PROMPT)
+        (call,) = calls
+        assert "response_format" not in call["payload"]
+        system = call["payload"]["messages"][0]["content"]
+        assert "valid JSON object matching this schema" in system
+        assert '"additionalProperties": false' in system
+
     def test_no_content_error_reports_response_diagnostics(self) -> None:
         reply = {
             "choices": [

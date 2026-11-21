@@ -63,6 +63,24 @@ def test_gateway_can_omit_unsupported_temperature(monkeypatch: pytest.MonkeyPatc
     assert "temperature" not in payload
 
 
+def test_gateway_can_request_json_without_response_format(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from rag.generation.base import Prompt
+
+    monkeypatch.setenv("LLM_GATEWAY_URL", "https://gw.test/v1")
+    config = GenerationConfig(
+        provider=LLMProvider.OPENAI_COMPATIBLE,
+        model_id="gw-model",
+        gateway_use_response_format=False,
+    )
+    payload = build_llm_client(config).request_payload(  # type: ignore[attr-defined]
+        Prompt(system="s", user="u", chunk_ids=(), response_schema={"type": "object"})
+    )
+    assert "response_format" not in payload
+    assert 'Schema: {"type": "object"}' in payload["messages"][0]["content"]
+
+
 def test_gateway_placeholder_model_must_be_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_GATEWAY_URL", "https://gw.test/v1")
     config = GenerationConfig(provider=LLMProvider.OPENAI_COMPATIBLE, model_id="<gateway-model-id>")

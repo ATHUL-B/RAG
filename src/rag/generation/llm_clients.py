@@ -265,6 +265,7 @@ class OpenAICompatibleLLMClient(LLMClient):
         timeout_s: float = 300.0,
         max_tokens: int = 2048,
         temperature: float | None = 0.0,
+        use_response_format: bool = True,
         post_json: PostJsonWithHeaders = urllib_post_json,
     ) -> None:
         if not base_url:
@@ -277,6 +278,7 @@ class OpenAICompatibleLLMClient(LLMClient):
         self._timeout_s = timeout_s
         self._max_tokens = max_tokens
         self._temperature = temperature
+        self._use_response_format = use_response_format
         self._post_json = post_json
 
     @property
@@ -295,14 +297,22 @@ class OpenAICompatibleLLMClient(LLMClient):
         if self._temperature is not None:
             payload["temperature"] = self._temperature
         if prompt.response_schema is not None:
-            payload["response_format"] = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "grounded_answer",
-                    "schema": prompt.response_schema,
-                    "strict": True,
-                },
-            }
+            if self._use_response_format:
+                payload["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "grounded_answer",
+                        "schema": prompt.response_schema,
+                        "strict": True,
+                    },
+                }
+            else:
+                schema = json.dumps(prompt.response_schema, ensure_ascii=False)
+                payload["messages"][0]["content"] += (
+                    "\n\nReturn only one valid JSON object matching this schema. "
+                    "Do not wrap it in Markdown. Schema: "
+                    f"{schema}"
+                )
         return payload
 
     def complete(self, prompt: Prompt) -> Completion:
