@@ -55,9 +55,22 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 ## Discovered / unscheduled
 
-- **Stronger generator via an LLM gateway (HLD 018):** client + runbook ready
-  (`docs/runbooks/gateway-generation-run.md`). Waiting on a collaborator's run folders;
-  then judge offline and compare with llama3.1:8b question by question.
+- **Stronger generator via an LLM gateway (HLD 018): parked, route unusable for evals.**
+  Bifrost → Bedrock Claude Sonnet 5.5 (PRs #27-#29, 2026-11-21):
+  - `temperature` rejected → `gateway_temperature: null`;
+  - any `response_format` request filtered → `gateway_use_response_format: false`;
+  - even then, **66/96 dev answers blocked** (`content_filtered`; 0 tokens, ~1.4 s per
+    attempt, retries don't help).
+  Blocking tracks *likely refusals*: 40/46 questions without retrieved evidence were
+  blocked, vs 26/50 with it; 22/28 of the questions llama refused were blocked. It is
+  not company or PII. The same question flipped between blocked and refused across runs.
+  Hypothesis: a gateway-side grounding check on the reply. That would bias accuracy up
+  and make refusal metrics meaningless, so retries (#28) can't rescue it.
+  Paired hint on the 28 questions both models answered: numeric 12/15 Sonnet vs 10/15
+  llama, generation p50 4.3 s vs ~14 s; too few and too easy to conclude anything.
+  **To resume:** a route without reply guardrails. First confirm with a 2-request test:
+  a forced refusal ("sky is blue" source) should be blocked, and a grounded answer should
+  pass.
 
 - **Generation (HLD 015):** citations land in `working`, almost never in `answer`; add a
   check (or prompt rule) for cited answers. Repetition loops inside `working` truncate the
