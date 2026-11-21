@@ -36,7 +36,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 | # | Item | Guide | Status |
 | --- | --- | --- | --- |
-| 3.1 | Cleaning (headers/footers, hyphenation) and table-aware parsing | 3 | todo |
+| 3.1 | Table-aware parsing. **Step 1 (HLD 021):** `pypdf-layout` parser keeps table rows on one line (`Purchases of PP&E \| (1,577) \| (1,373)`), plain-text fallback where layout loses words, per-parser artifacts and fingerprints. Retrieval ties (default 0.484 → 0.490, best 0.740 → 0.745), generation numeric 10/32 → 8/31 (5/3 flips, n.s.): flipped answers read the right figure, then reason wrongly. **Opt-in, not default.** Step 2 (column headers per row, table boundaries) deferred until a stronger generator is available | 3 | done (step 1; opt-in) |
 | 3.2 | Page-aware chunking + contextual headers (filing + page title block) (HLD 009): recall@5 0.377 → 0.427 (n.s. per step) | 4 | done |
 | 3.3 | Metadata filters (company, year) from the question, with relaxation (HLD 006): recall@5 0.273 → 0.377 | 8 | done |
 | 3.4 | BM25 index + Reciprocal Rank Fusion (HLD 007): top-5 tie with dense, candidate pool better (hit@50 0.820 → 0.887) | 9 | done |

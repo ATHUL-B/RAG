@@ -37,7 +37,9 @@ class RetrievalStack:
 def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
     """Load the dense index for this config's chunker + model, then compose the retriever."""
     embedder = build_embedder(config.embedding)
-    index_dir = dense_index_dir(config, build_chunker(config.chunking).fingerprint)
+    index_dir = dense_index_dir(
+        config, build_chunker(config.chunking, parser=config.parsing.parser).fingerprint
+    )
     store = ExactVectorStore.load(index_dir, expected_model_id=embedder.model_id)
     keyword_index = (
         build_bm25_index(config.retrieval.bm25, store.chunks)

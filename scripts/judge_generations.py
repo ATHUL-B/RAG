@@ -47,7 +47,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     embedder = build_embedder(config.embedding)  # lazy: only its model id is used
-    index_dir = dense_index_dir(config, build_chunker(config.chunking).fingerprint)
+    index_dir = dense_index_dir(
+        config, build_chunker(config.chunking, parser=config.parsing.parser).fingerprint
+    )
     store = ExactVectorStore.load(index_dir, expected_model_id=embedder.model_id)
     chunks = {c.chunk_id: c for c in store.chunks}
 

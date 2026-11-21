@@ -57,7 +57,9 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def _chunks(run: Path) -> dict[str, Any]:
     config = AppConfig.model_validate(json.loads((run / "summary.json").read_text())["config"])
-    index_dir = dense_index_dir(config, build_chunker(config.chunking).fingerprint)
+    index_dir = dense_index_dir(
+        config, build_chunker(config.chunking, parser=config.parsing.parser).fingerprint
+    )
     model_id = build_embedder(config.embedding).model_id
     return {c.chunk_id: c for c in ExactVectorStore.load(index_dir, model_id).chunks}
 

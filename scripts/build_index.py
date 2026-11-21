@@ -28,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging("WARNING")
 
     config = load_config(args.config)
-    fingerprint = build_chunker(config.chunking).fingerprint
+    fingerprint = build_chunker(config.chunking, parser=config.parsing.parser).fingerprint
     index_dir = dense_index_dir(config, fingerprint)
     if (index_dir / MANIFEST_FILE).exists() and not args.force:
         print(f"index exists: {index_dir} (use --force to rebuild)")

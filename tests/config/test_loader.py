@@ -189,3 +189,14 @@ def test_gateway_config_only_swaps_the_generator() -> None:
     same = {"experiment_name": "x", "generation": None}
     assert ollama.model_copy(update=same) == gateway.model_copy(update=same)
     assert gateway.generation.model_id.startswith("<")  # a placeholder the runner must set
+
+
+@pytest.mark.parametrize(
+    "base", ["planner-rules", "planner-llm-rerank-llm", "generation-ollama-best"]
+)
+def test_layout_configs_change_only_the_parser(base: str) -> None:
+    before = load_config(REPO_ROOT / "configs" / f"{base}.yaml")
+    after = load_config(REPO_ROOT / "configs" / f"{base}-layout.yaml")
+    same = {"experiment_name": "x", "parsing": None}
+    assert before.model_copy(update=same) == after.model_copy(update=same)
+    assert (before.parsing.parser, after.parsing.parser) == ("pypdf", "pypdf-layout")
