@@ -73,6 +73,7 @@ uv run python scripts/evaluate_generation.py --config configs/generation-ollama.
 uv run python scripts/judge_generations.py runs/<generation-run>   # 2.2: correctness + faithfulness judges (needs `ollama pull qwen2.5:7b`)
 uv run python scripts/judge_calibration.py label    # blind hand labels; then `report` for Cohen's kappa
 uv run python scripts/compare_runs.py runs/<a> runs/<b>   # per-question diff + 95% bootstrap CI
+uv run python scripts/budget_recall.py runs/<a> runs/<b> --baseline runs/<a>  # recall at an equal prompt-token budget (HLD 022)
 ```
 
 Other commands: `make format`, `make test`, `make test-slow` (network/model tests),
