@@ -259,6 +259,20 @@ class RerankConfig(StrictConfig):
     device: str = Field(default="auto", pattern=r"^(auto|cpu|mps|cuda(:\d+)?)$")
 
 
+class ParentChildConfig(StrictConfig):
+    """Search small child chunks, return their parent chunks (HLD 023).
+
+    The parents are the chunks of ``chunking``. The children use the same chunking with
+    these size and overlap values, and have their own index (``make data`` with a config
+    whose chunking matches them, e.g. ``chunks-200-o0.yaml``)."""
+
+    enabled: bool = False
+    child_chunk_size: PositiveInt = 200
+    child_chunk_overlap: NonNegativeInt = 0
+    fanout: PositiveInt = 4
+    """Children fetched per parent requested (several children share one parent)."""
+
+
 class RetrievalConfig(StrictConfig):
     top_k: PositiveInt = 5
     mode: RetrievalMode = RetrievalMode.DENSE
@@ -269,6 +283,7 @@ class RetrievalConfig(StrictConfig):
     rerank: RerankConfig = RerankConfig()
     filters: FilterConfig = FilterConfig()
     rewrite: RewriteConfig = RewriteConfig()
+    parent_child: ParentChildConfig = ParentChildConfig()
 
 
 class EvaluationConfig(StrictConfig):

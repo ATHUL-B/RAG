@@ -237,3 +237,14 @@ def test_chunks200_generation_config_changes_only_chunk_size_and_sources() -> No
     }
     assert base.model_copy(update=reset) == small.model_copy(update=reset)
     assert small.generation.model_copy(update={"max_sources": 5}) == base.generation
+
+
+@pytest.mark.parametrize("base", ["planner-rules", "planner-llm-rerank-llm"])
+def test_parent_child_configs_change_only_parent_child(base: str) -> None:
+    before = load_config(REPO_ROOT / "configs" / f"{base}.yaml")
+    after = load_config(REPO_ROOT / "configs" / f"{base}-pc.yaml")
+    assert after.retrieval.parent_child.enabled and not before.retrieval.parent_child.enabled
+    reset = {"parent_child": before.retrieval.parent_child}
+    assert after.retrieval.model_copy(update=reset) == before.retrieval
+    same = {"experiment_name": "x", "retrieval": None}
+    assert before.model_copy(update=same) == after.model_copy(update=same)
