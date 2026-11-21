@@ -9,6 +9,7 @@ from rag.generation.base import Completion, GenerationResult, LLMClient, Prompt
 from rag.generation.context import SourcesContextAssembler
 from rag.generation.generator import (
     BARE_BOOLEAN,
+    CONTENT_FILTERED,
     EMPTY_ANSWER,
     MARKUP_LEAK,
     SCHEMA_MISMATCH,
@@ -19,8 +20,8 @@ from rag.generation.generator import (
 
 
 class ScriptedLLM(LLMClient):
-    def __init__(self, text: str = "", refused: bool = False) -> None:
-        self._text, self._refused = text, refused
+    def __init__(self, text: str = "", refused: bool = False, stop: str = "end_turn") -> None:
+        self._text, self._refused, self._stop = text, refused, stop
         self.prompts: list[Prompt] = []
 
     @property
@@ -35,6 +36,7 @@ class ScriptedLLM(LLMClient):
             input_tokens=10,
             output_tokens=5,
             refused=self._refused,
+            stop_reason=self._stop,
         )
 
 
@@ -107,6 +109,14 @@ def test_output_that_breaks_the_schema_is_an_error() -> None:
     assert info.value.kind == SCHEMA_MISMATCH
     assert info.value.raw_output == "Capex was 1577 [S1]"
     assert info.value.prompt_chunk_ids == ("c1", "c2", "c3")
+
+
+@pytest.mark.parametrize("text", ['{"answerable": true, "work', _json(True, "1.9% [S1]")])
+def test_content_filtered_reply_is_its_own_error_even_if_it_parses(text: str) -> None:
+    with pytest.raises(UnusableAnswerError, match="content_filtered") as info:
+        _generate(ScriptedLLM(text, stop="content_filter"))
+    assert info.value.kind == CONTENT_FILTERED
+    assert info.value.raw_output == text
 
 
 @pytest.mark.parametrize(

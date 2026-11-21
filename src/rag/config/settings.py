@@ -303,6 +303,8 @@ class GenerationConfig(StrictConfig):
     """OpenAI-compatible sampling temperature; set to null for models that reject it."""
     gateway_use_response_format: bool = True
     """Use JSON-schema response_format; disable if the gateway rejects or filters it."""
+    gateway_filter_retries: NonNegativeInt = 2
+    """Retries when the gateway's content filter cuts a reply off (it fires intermittently)."""
     gateway_timeout_s: PositiveInt = 300
     pricing: PricingConfig = PricingConfig()
     expected_output_tokens: PositiveInt = 1500

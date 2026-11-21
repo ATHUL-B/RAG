@@ -65,6 +65,12 @@ If the gateway rejects or filters JSON-schema `response_format`, set
 `gateway_use_response_format: false` to send the schema as a prompt instruction instead;
 the runner still validates the returned JSON.
 
+**Bifrost → Bedrock Claude (tested 2026-11-21):** set both `gateway_temperature: null`
+and `gateway_use_response_format: false`. That route's content filter also cuts off some
+benign answers *intermittently*. A filtered reply is retried up to
+`gateway_filter_retries` times (default 2, and every attempt's tokens are counted). If it
+is still filtered, it is reported as error kind `content_filtered`, never as an answer.
+
 Do **not** change any other section. The retrieval settings must stay identical to our
 runs, so the comparison isolates the generator.
 
@@ -91,8 +97,11 @@ uv run python scripts/evaluate_generation.py --config configs/generation-gateway
 
 **Pass** only if *all* of these hold:
 
-- the summary line says **`errors=0`**;
-- the ladder table shows outcomes such as `correct`, `wrong` or `refused`, and no `error`;
+- the summary line says **`errors=0`**, or the only errors are kind `content_filtered`
+  and at least 2 of the 3 answers are usable (the filter is intermittent; the full run
+  measures how often it fires);
+- the ladder table shows outcomes such as `correct`, `wrong` or `refused`, and at most one
+  `error`;
 - each answer in `runs/generation-gateway-dev-<timestamp>/generations.jsonl` has a
   non-empty `answer` **and** a non-empty `working` (open the file and look).
 
@@ -105,6 +114,7 @@ uv run python scripts/evaluate_generation.py --config configs/generation-gateway
 | `HTTP 404` | `LLM_GATEWAY_URL` must end in `/v1`, or the model name is wrong |
 | `HTTP 400 … response_format` | the gateway or model doesn't support JSON-schema output; tell us, we'll adapt |
 | `gateway returned tool_calls instead of content` | the gateway rewrote the request into a tool call; tell us |
+| `errors` with kind `content_filtered` on most questions | the gateway's content filter blocks this route; send the request IDs to the gateway owner |
 | `errors` with kind `empty_answer` / `bare_boolean` / `markup_leak` | the reply was mangled in transit: the same failure class as an earlier gateway run, please send the folder |
 
 ## 6. Full runs
@@ -121,8 +131,10 @@ uv run python scripts/evaluate_generation.py --config configs/generation-gateway
 ```
 
 **Sanity check (STOP POINT):** in each run's printed summary, `errors` should be 0 or
-very few (≤ 3). Many errors mean something broke mid-run (rate limits, timeouts); send
-the folder rather than re-running blindly.
+very few (≤ 3, any kind including `content_filtered`). Many errors mean something broke
+mid-run (rate limits, timeouts, a stricter filter); send the folder rather than re-running
+blindly. Do not re-run filtered questions by hand: retries are already built in, and the
+count of `content_filtered` errors is itself a result we report.
 
 ## 7. Send back
 

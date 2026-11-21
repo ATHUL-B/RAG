@@ -7,6 +7,7 @@ HTTP ``post_json`` function), so unit tests never call a real API.
 from __future__ import annotations
 
 import json
+import logging
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
@@ -15,6 +16,11 @@ from typing import Any, Final, Protocol
 
 from rag.errors import GenerationError
 from rag.generation.base import Completion, LLMClient, Prompt
+
+logger = logging.getLogger(__name__)
+
+CONTENT_FILTER: Final = "content_filter"
+"""OpenAI-compatible ``finish_reason`` when a provider-side filter blocked or cut the reply."""
 
 REFUSAL_FALLBACK_BETA: Final = "server-side-fallback-2026-07-01"
 _REFUSAL: Final = "refusal"
@@ -266,12 +272,15 @@ class OpenAICompatibleLLMClient(LLMClient):
         max_tokens: int = 2048,
         temperature: float | None = 0.0,
         use_response_format: bool = True,
+        filter_retries: int = 0,
         post_json: PostJsonWithHeaders = urllib_post_json,
     ) -> None:
         if not base_url:
             raise ValueError("base_url is required")
         if max_tokens < 1:
             raise ValueError("max_tokens must be >= 1")
+        if filter_retries < 0:
+            raise ValueError("filter_retries must be >= 0")
         self._model = model
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._headers = _auth_headers(api_key, key_header)
@@ -279,6 +288,7 @@ class OpenAICompatibleLLMClient(LLMClient):
         self._max_tokens = max_tokens
         self._temperature = temperature
         self._use_response_format = use_response_format
+        self._filter_retries = filter_retries
         self._post_json = post_json
 
     @property
@@ -316,6 +326,31 @@ class OpenAICompatibleLLMClient(LLMClient):
         return payload
 
     def complete(self, prompt: Prompt) -> Completion:
+        """One answer, retrying up to ``filter_retries`` times when the gateway's content
+        filter cuts the reply off (``finish_reason=content_filter``).
+
+        On a Bifrost/Bedrock route the filter fired intermittently on benign FinanceBench
+        answers: the same request passed on one try and was filtered on the next
+        (``experiments/analysis/2026-11-20-bifrost-gateway-smoke.md``). Tokens of every
+        attempt are summed, since filtered attempts are billed too. If every attempt is
+        filtered, the last one is returned with ``stop_reason="content_filter"`` and the
+        generator reports it as its own error kind, never as an answer.
+        """
+        input_tokens = output_tokens = 0
+        for attempt in range(self._filter_retries + 1):
+            completion = self._complete_once(prompt)
+            input_tokens += completion.input_tokens
+            output_tokens += completion.output_tokens
+            if completion.stop_reason != CONTENT_FILTER:
+                break
+            logger.warning(
+                "gateway content filter", extra={"attempt": attempt + 1, "model": self._model}
+            )
+        return completion.model_copy(
+            update={"input_tokens": input_tokens, "output_tokens": output_tokens}
+        )
+
+    def _complete_once(self, prompt: Prompt) -> Completion:
         body = self._post_json(
             self._url, self.request_payload(prompt), self._timeout_s, headers=self._headers
         )
@@ -334,6 +369,8 @@ class OpenAICompatibleLLMClient(LLMClient):
         if message.get("refusal"):
             return Completion(text="", refused=True, **common)
         content = message.get("content")
+        if common["stop_reason"] == CONTENT_FILTER:
+            return Completion(text=str(content or ""), **common)
         if content is None:
             kind = "tool_calls instead of content" if message.get("tool_calls") else "no content"
             fields = ",".join(sorted(str(key) for key in message)) or "none"
