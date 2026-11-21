@@ -40,6 +40,7 @@ class RerankingRetriever(Retriever):
             first = self._inner.retrieve(query, max(k, self._depth))
         with timer.stage(RERANK_STAGE):
             reranked = self._reranker.rerank(query, first.candidates, top_n=k)
+        note = self._reranker.last_degradation
         return RetrievalResult(
             candidates=tuple(reranked),
             applied_filters=dict(first.applied_filters),
@@ -47,4 +48,5 @@ class RerankingRetriever(Retriever):
             stage_candidates={**first.stage_candidates, FIRST_STAGE: first.candidates},
             timings_ms={**first.timings_ms, **timer.timings_ms},
             queries=first.queries,
+            degraded=(*first.degraded, note) if note else first.degraded,
         )

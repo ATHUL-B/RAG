@@ -48,7 +48,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 
 | # | Item | Guide | Status |
 | --- | --- | --- | --- |
-| 4.1 | Latency budget (HLD 019): cold vs warm, p50/p95 per stage. Best retrieval cold **28.9 s p50, 90% in the LLM reranker** (20 × ~1.3 s); warm (cached) 42 ms. Concurrent grading: **no gain on a 1-slot Ollama** (code kept, off). One-token grade: −27% rerank time but **rejected** (recall@5 −0.125, grades collapse). Depth 15/10: −0.031 (borderline) / −0.057 (significant); depth 20 kept. **Next:** per-stage time budget (rerank deadline → fused order), skip the planner for simple questions, smaller grader model | 14 | in-progress |
+| 4.1 | Latency budget (HLD 019): cold vs warm, p50/p95 per stage. Best retrieval cold **28.9 s p50, 90% in the LLM reranker** (20 × ~1.3 s); warm (cached) 42 ms. Concurrent grading: **no gain on a 1-slot Ollama** (code kept, off). One-token grade: −27% rerank time but **rejected** (recall@5 −0.125, grades collapse). Depth 15/10: −0.031 (borderline) / −0.057 (significant); depth 20 kept. **Rerank time budget (HLD 020):** no new call after `time_budget_s`, ungraded keep first-stage order, flagged in traces (`degraded`). 13 s budget: cold p95 32.4 s → 17.7 s, recall@5 0.688 (= the depth curve). New balanced profile `planner-llm-rerank-llm-budget13.yaml`. **Next:** skip the planner for simple questions, smaller grader model | 14 | in-progress |
 | 4.2 | Index tuning (HNSW params) + index-recall measurement at scale (MS MARCO / NQ) | 5, 14 | todo |
 | 4.3 | Eval regression gate in CI on a small golden subset | 13 | todo |
 | 4.4 | Cross-check retrieval code on BEIR (SciFact, FiQA) against published nDCG@10 | 13 | todo |

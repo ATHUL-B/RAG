@@ -66,6 +66,8 @@ class QueryTrace(BaseModel):
     retrieved: list[RetrievedRecord]
     timings_ms: dict[str, float]
     metrics: dict[str, float]
+    degraded: list[str] = Field(default_factory=list)
+    """Stages that fell back or were cut short for this question (e.g. a rerank budget)."""
 
 
 class RetrievalRunResult(BaseModel):
@@ -178,6 +180,7 @@ class RetrievalEvalRunner:
             retrieved=_records(hits, ids, qrels.keys()),
             timings_ms={**timer.timings_ms, **result.timings_ms},
             metrics=scores,
+            degraded=list(result.degraded),
         )
         return trace, metrics.model_copy(update={"scores": scores})
 

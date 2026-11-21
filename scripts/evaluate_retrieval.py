@@ -97,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
             "calls": llm_reranker.calls,
             "cache_hits": llm_reranker.cache_hits,
             "fallbacks": llm_reranker.failures,
+            "budget_cutoffs": llm_reranker.budget_cutoffs,
+            "ungraded": llm_reranker.ungraded,
         }
     atomic_write_bytes(out / "metrics.json", _json(summary))
 
@@ -109,7 +111,9 @@ def main(argv: list[str] | None = None) -> int:
     if llm_reranker is not None:
         print(
             f"llm reranker: {llm_reranker.calls} grading calls, {llm_reranker.cache_hits} "
-            f"cache hits, {llm_reranker.failures} questions fell back to fused order"
+            f"cache hits, {llm_reranker.failures} questions fell back to fused order, "
+            f"{llm_reranker.budget_cutoffs} cut short by the time budget "
+            f"({llm_reranker.ungraded} candidates ungraded)"
         )
     if planner is not None:
         print(

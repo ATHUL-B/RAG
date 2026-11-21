@@ -31,6 +31,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from enum import StrEnum
@@ -41,6 +42,7 @@ from rag.domain import Query, ScoredChunk
 from rag.errors import GenerationError
 from rag.generation.base import LLMClient, Prompt
 from rag.generation.context import compact
+from rag.observability.timing import Clock
 from rag.retrieval.base import Reranker
 from rag.storage import atomic_write_bytes
 
@@ -162,6 +164,16 @@ def grader_user_message(question: str, candidate: ScoredChunk, max_chars: int) -
 
 
 class LLMPointwiseReranker(Reranker):
+    """Grades candidates in first-stage order; optionally stops at a time budget (HLD 020).
+
+    With ``time_budget_s`` set, no new grading call starts once the budget is spent. Graded
+    candidates are ranked by grade, and the ungraded ones follow in first-stage order, so
+    a cut-off after k grades behaves exactly like rerank depth k. Cached grades cost no
+    time and are always used. A call already in flight finishes, so the overrun is at most
+    one call (or one batch with ``concurrency`` > 1). Every cut-off and fallback is reported
+    through ``last_degradation`` and lands in the trace.
+    """
+
     def __init__(
         self,
         llm: LLMClient,
@@ -169,41 +181,75 @@ class LLMPointwiseReranker(Reranker):
         cache: GradeCache | None = None,
         concurrency: int = 1,
         grade_format: GradeFormat = GradeFormat.OBJECT,
+        time_budget_s: float | None = None,
+        clock: Clock = time.perf_counter,
     ) -> None:
         if max_passage_chars < 1:
             raise ValueError("max_passage_chars must be >= 1")
         if concurrency < 1:
             raise ValueError("concurrency must be >= 1")
+        if time_budget_s is not None and time_budget_s <= 0:
+            raise ValueError("time_budget_s must be > 0")
         self._llm = llm
         self._max_passage_chars = max_passage_chars
         self._cache = cache
         self._concurrency = concurrency
         self._grade_format = grade_format
+        self._time_budget_s = time_budget_s
+        self._clock = clock
+        self._last_degradation: str | None = None
         self.calls = 0
         self.cache_hits = 0
         self.failures = 0
         """Questions whose ranking fell back to the first-stage order."""
+        self.budget_cutoffs = 0
+        """Questions where the time budget stopped grading early."""
+        self.ungraded = 0
+        """Candidates left ungraded by the budget, summed over questions."""
+
+    @property
+    def last_degradation(self) -> str | None:
+        return self._last_degradation
 
     def rerank(
         self, query: Query, candidates: Sequence[ScoredChunk], top_n: int
     ) -> list[ScoredChunk]:
+        self._last_degradation = None
         grades = self._grades(query.text, candidates)
         if grades is None:  # one failure → keep the fused order for this question
             self.failures += 1
+            self._last_degradation = "rerank_failed: first-stage order"
             return list(candidates[:top_n])
-        order = sorted(range(len(candidates)), key=lambda i: (-grades[i], i))[:top_n]
-        return [
-            ScoredChunk(chunk=candidates[i].chunk, score=float(grades[i]), rank=rank, stage=STAGE)
-            for rank, i in enumerate(order, start=1)
-        ]
+        graded = sorted(grades, key=lambda i: (-grades[i], i))
+        ungraded = [i for i in range(len(candidates)) if i not in grades]
+        if ungraded:
+            self.budget_cutoffs += 1
+            self.ungraded += len(ungraded)
+            self._last_degradation = (
+                f"rerank_budget: graded {len(grades)}/{len(candidates)}, rest in first-stage order"
+            )
+        ranked = []
+        for rank, i in enumerate([*graded, *ungraded][:top_n], start=1):
+            candidate = candidates[i]
+            if i in grades:
+                ranked.append(
+                    ScoredChunk(
+                        chunk=candidate.chunk, score=float(grades[i]), rank=rank, stage=STAGE
+                    )
+                )
+            else:  # keeps its first-stage score and stage, so the trace shows it wasn't graded
+                ranked.append(candidate.model_copy(update={"rank": rank}))
+        return ranked
 
-    def _grades(self, question: str, candidates: Sequence[ScoredChunk]) -> list[int] | None:
-        """Cached grades first, then one call per missing grade (concurrently if allowed).
+    def _grades(self, question: str, candidates: Sequence[ScoredChunk]) -> dict[int, int] | None:
+        """Grades by candidate index: cached ones first, then calls in first-stage order.
 
-        Calls, counters and cache writes stay on this thread; workers only call the model.
-        Sequentially, the first failure stops further calls. Concurrently, the batch in
-        flight completes, but the result is the same fallback.
+        Calls go in batches of ``concurrency`` (1 = one at a time). Before each batch the
+        time budget is checked; once spent, the remaining candidates stay ungraded. A failed
+        call returns None (whole-question fallback). Counters and cache writes stay on this
+        thread; workers only call the model.
         """
+        start = self._clock()
         grades: dict[int, int] = {}
         missing: list[int] = []
         for i, candidate in enumerate(candidates):
@@ -217,24 +263,23 @@ class LLMPointwiseReranker(Reranker):
             else:
                 self.cache_hits += 1
                 grades[i] = cached
-        if self._concurrency > 1 and len(missing) > 1:
-            with ThreadPoolExecutor(max_workers=min(self._concurrency, len(missing))) as pool:
-                results = list(pool.map(lambda i: self._call(question, candidates[i]), missing))
-            self.calls += len(missing)
-        else:
-            results = []
-            for i in missing:
-                self.calls += 1
-                results.append(self._call(question, candidates[i]))
-                if results[-1] is None:
-                    break
-        for i, grade in zip(missing, results, strict=False):
-            if grade is None:
-                return None
-            grades[i] = grade
-            if self._cache is not None:
-                self._cache.put(question, candidates[i].chunk.chunk_id, grade)
-        return [grades[i] for i in range(len(candidates))]
+        for b in range(0, len(missing), self._concurrency):
+            if self._time_budget_s is not None and self._clock() - start >= self._time_budget_s:
+                break
+            batch = missing[b : b + self._concurrency]
+            self.calls += len(batch)
+            if len(batch) > 1:
+                with ThreadPoolExecutor(max_workers=len(batch)) as pool:
+                    results = list(pool.map(lambda i: self._call(question, candidates[i]), batch))
+            else:
+                results = [self._call(question, candidates[batch[0]])]
+            for i, grade in zip(batch, results, strict=True):
+                if grade is None:
+                    return None
+                grades[i] = grade
+                if self._cache is not None:
+                    self._cache.put(question, candidates[i].chunk.chunk_id, grade)
+        return grades
 
     def _call(self, question: str, candidate: ScoredChunk) -> int | None:
         """One grading call; None on any failure (logged, never raised)."""

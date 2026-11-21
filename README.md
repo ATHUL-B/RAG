@@ -59,6 +59,7 @@ uv run python scripts/evaluate_retrieval.py --config configs/rerank-bge.yaml  # 
 uv run python scripts/evaluate_retrieval.py --config configs/planner-clean.yaml  # ablation: + query cleanup (HLD 011)
 uv run python scripts/evaluate_retrieval.py --config configs/planner-llm.yaml  # + local LLM planner: needs Ollama + `ollama pull llama3.1:8b`
 uv run python scripts/evaluate_retrieval.py --config configs/planner-llm-rerank-llm.yaml  # + local LLM reranker (best quality, ~27 s/question)
+uv run python scripts/evaluate_retrieval.py --config configs/planner-llm-rerank-llm-budget13.yaml  # balanced: 13 s rerank budget (~16 s/question, recall@5 0.688; HLD 020)
 # default (no local model needed): configs/planner-rules.yaml; best quality: configs/planner-llm-rerank-llm.yaml (same chunks/index as pages-context.yaml)
 
 # Phase 2: answers with citations (needs ANTHROPIC_API_KEY in .env, see .env.example)
