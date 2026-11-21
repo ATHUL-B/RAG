@@ -101,3 +101,30 @@ class TestRelevanceGrades:
         assert precision_at_k(["A"], {}, 1) == 0.0
         assert hit_at_k(["A"], {}, 1) == 0.0
         assert reciprocal_rank(["A"], {}) == 0.0
+
+
+def test_recall_at_token_budget_counts_only_what_fits_in_rank_order() -> None:
+    from rag.evaluation.retrieval_metrics import recall_at_token_budget
+
+    qrels = {"p1": 1, "p2": 1}
+    ranked = ["x", "p1", "p1", "p2"]  # p1 twice (two chunks of one page)
+    tokens = [300, 400, 400, 200]
+    # budget 700: x + p1 = 700 fit; the next p1 would make 1100 -> stop. recall 1/2
+    assert recall_at_token_budget(ranked, tokens, qrels, 700) == 0.5
+    # budget 1300: x, p1, p1 (1100) fit; p2 would make 1300 -> fits exactly. recall 2/2
+    assert recall_at_token_budget(ranked, tokens, qrels, 1300) == 1.0
+    # budget 1299: p2 no longer fits
+    assert recall_at_token_budget(ranked, tokens, qrels, 1299) == 0.5
+    # a first chunk larger than the budget leaves nothing
+    assert recall_at_token_budget(ranked, tokens, qrels, 299) == 0.0
+
+
+def test_recall_at_token_budget_rejects_bad_input() -> None:
+    from rag.evaluation.retrieval_metrics import recall_at_token_budget
+
+    with pytest.raises(ValueError, match="budget"):
+        recall_at_token_budget(["a"], [1], {"a": 1}, 0)
+    with pytest.raises(ValueError, match="same length"):
+        recall_at_token_budget(["a"], [1, 2], {"a": 1}, 10)
+    with pytest.raises(ValueError, match="unanswerable"):
+        recall_at_token_budget(["a"], [1], {}, 10)

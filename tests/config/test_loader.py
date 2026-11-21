@@ -200,3 +200,40 @@ def test_layout_configs_change_only_the_parser(base: str) -> None:
     same = {"experiment_name": "x", "parsing": None}
     assert before.model_copy(update=same) == after.model_copy(update=same)
     assert (before.parsing.parser, after.parsing.parser) == ("pypdf", "pypdf-layout")
+
+
+@pytest.mark.parametrize(
+    ("name", "size", "overlap"),
+    [
+        ("200-o0", 200, 0),
+        ("200-o10", 200, 20),
+        ("400-o0", 400, 0),
+        ("400-o10", 400, 40),
+        ("800-o0", 800, 0),
+        ("800-o10", 800, 80),
+    ],
+)
+def test_chunk_sweep_configs_change_only_size_overlap_and_eval_depth(
+    name: str, size: int, overlap: int
+) -> None:
+    base = load_config(REPO_ROOT / "configs" / "planner-rules.yaml")
+    sweep = load_config(REPO_ROOT / "configs" / f"chunks-{name}.yaml")
+    assert (sweep.chunking.chunk_size, sweep.chunking.chunk_overlap) == (size, overlap)
+    assert sweep.evaluation.ks == (1, 2, 3, 5, 10, 20)
+    same = {"experiment_name": "x", "chunking": None, "evaluation": None}
+    assert base.model_copy(update=same) == sweep.model_copy(update=same)
+    reset = {"chunk_size": 400, "chunk_overlap": 0}
+    assert sweep.chunking.model_copy(update=reset) == base.chunking
+
+
+def test_chunks200_generation_config_changes_only_chunk_size_and_sources() -> None:
+    base = load_config(REPO_ROOT / "configs" / "generation-ollama.yaml")
+    small = load_config(REPO_ROOT / "configs" / "generation-ollama-chunks200.yaml")
+    assert (small.chunking.chunk_size, small.generation.max_sources) == (200, 9)
+    reset = {
+        "experiment_name": "x",
+        "chunking": base.chunking,
+        "generation": base.generation,
+    }
+    assert base.model_copy(update=reset) == small.model_copy(update=reset)
+    assert small.generation.model_copy(update={"max_sources": 5}) == base.generation

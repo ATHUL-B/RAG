@@ -42,6 +42,7 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 3.4 | BM25 index + Reciprocal Rank Fusion (HLD 007): top-5 tie with dense, candidate pool better (hit@50 0.820 → 0.887) | 9 | done |
 | 3.5 | Cross-encoder rerankers (MiniLM, bge-base) over hybrid/dense pools (HLD 008, ADR 0004): no top-5 gain, +220 ms-1.5 s; kept, disabled. **3.5b:** local LLM pointwise reranker over the planner pool (HLD 014): dev 0.740, test 0.667 (significant); ~26 s/question | 10 | done |
 | 3.6 | Query rewriting / decomposition. **Step 1 done:** rule-based planner (HLD 011), dev recall@5 0.427 → 0.484, test 0.426 → 0.481 (both significant). **Step 2 done:** local LLM planner (Ollama llama3.1:8b, HLD 012), dev 0.484 → 0.583 (significant), test 0.481 → 0.546 (n.s.; MRR significant), +2.3 s/question uncached; opt-in, not default. Step 3: weighting the original list in RRF (HLD 013) **rejected**: no weight helps; losses are a top-5 budget problem, pool_recall 0.976 | 7 | done (rules default; LLM planner opt-in) |
+| 3.8 | Chunk size and overlap sweep (guide Part 15; HLD 022): 200/400/800 × 0/10% on `planner-rules`. recall@5 ties everywhere. At an equal token budget 200 looks +0.172 (page-level), but the evidence-text check shows no gain, and **answers are worse** (numeric 13/30 → 5/31, 8/1 flips). 800 is 45% truncated by bge (512). **Keep 400/0**. New `recall_at_token_budget` + `scripts/budget_recall.py` | 4, 13 | done |
 | 3.7 | Contextual chunks, parent-child retrieval | 4, 12 | todo |
 
 ## Phase 4: Production concerns
