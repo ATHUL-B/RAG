@@ -59,6 +59,12 @@ Edit three lines in `configs/generation-gateway.yaml` (local only, don't commit)
 | `gateway_key_header: Authorization` | keep `Authorization` for a standard Bearer key; for Bifrost virtual keys use `x-bf-vk` |
 | `pricing: {input_per_mtok: …, output_per_mtok: …}` | your model's USD price per million tokens (for the cost estimate) |
 
+If the model rejects `temperature` (for example, Claude Sonnet 5.5 on Bedrock), add
+`gateway_temperature: null` under `generation`; otherwise the default is deterministic `0`.
+If the gateway rejects or filters JSON-schema `response_format`, set
+`gateway_use_response_format: false` to send the schema as a prompt instruction instead;
+the runner still validates the returned JSON.
+
 Do **not** change any other section. The retrieval settings must stay identical to our
 runs, so the comparison isolates the generator.
 

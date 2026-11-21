@@ -207,6 +207,37 @@ class TestOpenAICompatible:
         assert (completion.input_tokens, completion.output_tokens) == (1500, 200)
         assert completion.model_id == "provider/gw-model"
 
+    def test_temperature_can_be_omitted_for_models_that_reject_it(self) -> None:
+        client, calls = self._client(self._reply(), temperature=None)
+        client.complete(PROMPT)
+        (call,) = calls
+        assert "temperature" not in call["payload"]
+
+    def test_can_request_json_with_schema_instructions_not_response_format(self) -> None:
+        client, calls = self._client(self._reply(), use_response_format=False)
+        client.complete(PROMPT)
+        (call,) = calls
+        assert "response_format" not in call["payload"]
+        system = call["payload"]["messages"][0]["content"]
+        assert "valid JSON object matching this schema" in system
+        assert '"additionalProperties": false' in system
+
+    def test_no_content_error_reports_response_diagnostics(self) -> None:
+        reply = {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": None},
+                    "finish_reason": "content_filter",
+                }
+            ]
+        }
+        client, _ = self._client(reply)
+        with pytest.raises(
+            GenerationError,
+            match=r"finish_reason=content_filter, message_fields=content,role, refusal=absent",
+        ):
+            client.complete(PROMPT)
+
     @pytest.mark.parametrize(
         ("key", "header", "expected"),
         [
