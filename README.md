@@ -77,6 +77,7 @@ uv run python scripts/judge_generations.py runs/<generation-run>   # 2.2: correc
 uv run python scripts/judge_calibration.py label    # blind hand labels; then `report` for Cohen's kappa
 uv run python scripts/compare_runs.py runs/<a> runs/<b>   # per-question diff + 95% bootstrap CI
 uv run python scripts/budget_recall.py runs/<a> runs/<b> --baseline runs/<a>  # recall at an equal prompt-token budget (HLD 022)
+make gate   # retrieval regression gate (CI job eval-gate): 32 dev questions, ~2 min; if a change moves them on purpose: uv run python scripts/eval_gate.py --update, and commit evals/gate-v1.json (HLD 024)
 ```
 
 Other commands: `make format`, `make test`, `make test-slow` (network/model tests),
