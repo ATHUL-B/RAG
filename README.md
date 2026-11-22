@@ -14,6 +14,10 @@ answers are generated, checked, judged and refused, and
 [`docs/walkthroughs/phase-4-latency-and-ingestion-experiments.md`](docs/walkthroughs/phase-4-latency-and-ingestion-experiments.md)
 for the latency budget, rerank time limits, table parsing, chunk sizes and parent-child retrieval.
 
+**The summary of the whole project is in [`docs/final-write-up.md`](docs/final-write-up.md):**
+every measured step from recall@5 0.273 to 0.781, what failed and why, and a playbook for
+building and optimising RAG on any corpus at any scale.
+
 ## Setup
 
 Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 for you).
