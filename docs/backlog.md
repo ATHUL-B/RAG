@@ -56,6 +56,12 @@ study guide Part 13). Status: `todo` / `in-progress` / `done`.
 | 4.3 | **Eval regression gate in CI (HLD 024):** 32 dev questions over the 14 filings of 7 companies. Company filters make the small corpus give *identical* results to the full one (verified 32/32, CPU vs GPU). Default retrieval, no LLM, ~2 min. Fails if > 1 question loses recall or mean recall@5 falls > 0.05; gains reported. `make gate`, CI job `eval-gate`; `--update` to change expectations deliberately | 13, 14 | done |
 | 4.4 | **BEIR cross-check (HLD 025):** our embedder + exact store + dense retrieval + metrics vs the MTEB results on the bge-small model card (same revision). nDCG@10: SciFact **0.7127 vs 0.7127**, NFCorpus (graded) 0.3438 vs 0.3431, FiQA 0.4035 vs 0.4034; recall@100 within 0.001. Data: `mteb/<name>` at pinned commits | 13 | done |
 
+## Phase 5: Wrap-up
+
+| # | Item | Guide | Status |
+| --- | --- | --- | --- |
+| 5.1 | **Final write-up** ([`final-write-up.md`](final-write-up.md)): the recall ladder 0.273 → 0.781 with its negative results, ten lessons, and a corpus-independent playbook (phases, debugging ladder, symptom → lever menu, scale tiers, decision rules, checklist) | 13, 14, 15 | done |
+
 ## Discovered / unscheduled
 
 - **Stronger generator via an LLM gateway (HLD 018): parked, route unusable for evals.**
