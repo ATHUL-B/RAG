@@ -9,13 +9,23 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from rag.config import AppConfig, ChunkingConfig, LLMProvider, RerankerKind, RetrievalMode
+from rag.config import (
+    AppConfig,
+    ChunkingConfig,
+    DenseIndexConfig,
+    DenseIndexKind,
+    LLMProvider,
+    RerankerKind,
+    RetrievalMode,
+)
 from rag.datasets.financebench import COMPANY_ALIASES, FinanceBenchDataset
 from rag.domain import Chunk, GoldenItem
 from rag.errors import ConfigError
 from rag.evaluation.splits import SplitName, load_split, select
 from rag.generation.llm_clients import OllamaLLMClient, check_ollama_model
+from rag.indexing.base import VectorStore
 from rag.indexing.factory import build_embedder, dense_index_dir
+from rag.indexing.hnsw import HNSWVectorStore
 from rag.indexing.vector_store import ExactVectorStore
 from rag.ingestion.factory import build_chunker
 from rag.retrieval.base import Retriever
@@ -54,7 +64,7 @@ def load_retrieval_stack(config: AppConfig) -> RetrievalStack:
     retriever = build_retriever(
         config.retrieval,
         embedder,
-        store,
+        dense_search(config.retrieval.dense_index, store),
         COMPANY_ALIASES,
         keyword_index,
         reranker=llm_reranker,
@@ -76,6 +86,20 @@ def child_chunking(config: AppConfig) -> ChunkingConfig:
     pc = config.retrieval.parent_child
     return config.chunking.model_copy(
         update={"chunk_size": pc.child_chunk_size, "chunk_overlap": pc.child_chunk_overlap}
+    )
+
+
+def dense_search(config: DenseIndexConfig, store: ExactVectorStore) -> VectorStore:
+    """The exact store itself, or an HNSW graph built over its vectors (HLD 028)."""
+    if config.kind is DenseIndexKind.EXACT:
+        return store
+    return HNSWVectorStore(
+        store,
+        m=config.m,
+        ef_construction=config.ef_construction,
+        ef_search=config.ef_search,
+        exact_below=config.exact_below,
+        seed=config.seed,
     )
 
 

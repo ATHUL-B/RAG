@@ -258,3 +258,17 @@ def test_prompt_v2_configs_change_only_the_prompt(base: str) -> None:
     reset = {"experiment_name": "x", "generation": before.generation}
     assert after.model_copy(update=reset) == before.model_copy(update=reset)
     assert after.generation.model_copy(update={"prompt_version": "v1"}) == before.generation
+
+
+@pytest.mark.parametrize("base", ["baseline", "planner-rules"])
+def test_hnsw_configs_change_only_the_dense_index(base: str) -> None:
+    before = load_config(REPO_ROOT / "configs" / f"{base}.yaml")
+    after = load_config(REPO_ROOT / "configs" / f"{base}-hnsw.yaml")
+    assert (before.retrieval.dense_index.kind, after.retrieval.dense_index.kind) == (
+        "exact",
+        "hnsw",
+    )
+    reset = {"dense_index": before.retrieval.dense_index}
+    assert after.retrieval.model_copy(update=reset) == before.retrieval
+    same = {"experiment_name": "x", "retrieval": None}
+    assert before.model_copy(update=same) == after.model_copy(update=same)
