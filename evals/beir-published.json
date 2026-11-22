@@ -1,0 +1,26 @@
+{
+  "source": "BAAI/bge-small-en-v1.5 model card (README.md model-index, MTEB results), revision 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a, the revision pinned in configs/*.yaml",
+  "split": "test",
+  "tolerance": 0.01,
+  "datasets": {
+    "scifact": {
+      "mteb_task": "SciFact",
+      "ndcg@10": 0.71275,
+      "recall@100": 0.94167,
+      "mteb_revision": "cf10ab6856b15b0e670ef8ae5dae4e266c12d035"
+    },
+    "nfcorpus": {
+      "mteb_task": "NFCorpus",
+      "ndcg@10": 0.34305,
+      "recall@100": 0.31135,
+      "mteb_revision": "52ac3f19d3449632d9f00aab0ad34a110fc03816"
+    },
+    "fiqa": {
+      "mteb_task": "FiQA2018",
+      "ndcg@10": 0.40343,
+      "recall@100": 0.69552,
+      "mteb_revision": "5e59eeb3a7df6b85882112b747008547c21587ea"
+    }
+  },
+  "data_source": "huggingface.co/datasets/mteb/<name> at mteb_revision (the data MTEB scored)"
+}
