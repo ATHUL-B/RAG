@@ -33,7 +33,7 @@ from rag.evaluation.generation_runner import (
 from rag.evaluation.retrieval_report import OVERALL
 from rag.evaluation.retrieval_runner import indexed_units
 from rag.evaluation.splits import SplitName
-from rag.generation.context import SourcesContextAssembler
+from rag.generation.context import SYSTEM_PROMPTS, SourcesContextAssembler
 from rag.generation.factory import build_generator
 from rag.ingestion.tokenization import TiktokenCounter
 from rag.observability import configure_logging
@@ -83,7 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     pricing = Pricing(
         input_per_mtok=gen.pricing.input_per_mtok, output_per_mtok=gen.pricing.output_per_mtok
     )
-    assembler = SourcesContextAssembler(max_sources=gen.max_sources)
+    assembler = SourcesContextAssembler(
+        max_sources=gen.max_sources, system_prompt=SYSTEM_PROMPTS[gen.prompt_version]
+    )
     prompts = [
         assembler.assemble(q, stack.retriever.retrieve(q, gen.max_sources).candidates)
         for q in (Query(text=item.question) for item in items)

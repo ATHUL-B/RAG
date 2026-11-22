@@ -248,3 +248,13 @@ def test_parent_child_configs_change_only_parent_child(base: str) -> None:
     assert after.retrieval.model_copy(update=reset) == before.retrieval
     same = {"experiment_name": "x", "retrieval": None}
     assert before.model_copy(update=same) == after.model_copy(update=same)
+
+
+@pytest.mark.parametrize("base", ["generation-ollama", "generation-ollama-best"])
+def test_prompt_v2_configs_change_only_the_prompt(base: str) -> None:
+    before = load_config(REPO_ROOT / "configs" / f"{base}.yaml")
+    after = load_config(REPO_ROOT / "configs" / f"{base}-pv2.yaml")
+    assert (before.generation.prompt_version, after.generation.prompt_version) == ("v1", "v2")
+    reset = {"experiment_name": "x", "generation": before.generation}
+    assert after.model_copy(update=reset) == before.model_copy(update=reset)
+    assert after.generation.model_copy(update={"prompt_version": "v1"}) == before.generation

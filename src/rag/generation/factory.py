@@ -7,7 +7,7 @@ import os
 from rag.config import GenerationConfig, LLMProvider
 from rag.errors import ConfigError
 from rag.generation.base import LLMClient
-from rag.generation.context import SourcesContextAssembler
+from rag.generation.context import SYSTEM_PROMPTS, SourcesContextAssembler
 from rag.generation.generator import GroundedAnswerGenerator
 from rag.generation.llm_clients import (
     AnthropicLLMClient,
@@ -55,5 +55,7 @@ def build_llm_client(config: GenerationConfig) -> LLMClient:
 def build_generator(
     config: GenerationConfig, llm: LLMClient | None = None
 ) -> GroundedAnswerGenerator:
-    assembler = SourcesContextAssembler(max_sources=config.max_sources)
+    assembler = SourcesContextAssembler(
+        max_sources=config.max_sources, system_prompt=SYSTEM_PROMPTS[config.prompt_version]
+    )
     return GroundedAnswerGenerator(assembler, llm or build_llm_client(config))
