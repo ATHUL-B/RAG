@@ -51,3 +51,20 @@ def test_committed_unanswerable_set_is_valid_and_tagged() -> None:
         "unanswerable:not-disclosed",
         "unanswerable:speculative",
     }
+
+
+def test_committed_near_miss_set_is_valid_tagged_and_verified() -> None:
+    items = read_golden_items(REPO_ROOT / "evals" / "unanswerable-v2.jsonl")
+    assert len(items) == 24
+    assert all(not item.answerable and "type:unanswerable" in item.tags for item in items)
+    reasons = [item.metadata["reason"] for item in items]
+    assert {r: reasons.count(r) for r in set(reasons)} == {
+        "false-premise": 8,
+        "not-reported": 8,
+        "adjacent-period": 8,
+    }
+    # every question records where it was checked against the corpus (HLD 026)
+    assert all(str(item.metadata.get("verified_in", "")).strip() for item in items)
+    assert len({item.item_id for item in items}) == 24
+    v1 = {i.question for i in read_golden_items(REPO_ROOT / "evals" / "unanswerable-v1.jsonl")}
+    assert not v1 & {item.question for item in items}
