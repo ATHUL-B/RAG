@@ -273,6 +273,31 @@ class ParentChildConfig(StrictConfig):
     """Children fetched per parent requested (several children share one parent)."""
 
 
+class DenseIndexKind(StrEnum):
+    EXACT = "exact"
+    HNSW = "hnsw"
+
+
+class DenseIndexConfig(StrictConfig):
+    """Which nearest-neighbour search the dense retriever uses (HLD 028).
+
+    ``exact`` compares the query with every vector (ADR 0003). ``hnsw`` walks the
+    from-scratch graph in ``indexing/hnsw.py``, built in memory when the stack loads.
+    """
+
+    kind: DenseIndexKind = DenseIndexKind.EXACT
+    m: int = Field(default=16, ge=2)
+    """Links per node and layer (2*m on layer 0): more links, higher recall, more memory."""
+    ef_construction: PositiveInt = 100
+    """Beam width while building: a better graph for a slower build."""
+    ef_search: PositiveInt = 64
+    """Beam width per query (raised to k): the recall / latency knob."""
+    exact_below: NonNegativeInt = 2000
+    """Search exactly when at most this many chunks pass the filters."""
+    seed: int = 0
+    """Seeds the random node levels, so a build is reproducible."""
+
+
 class RetrievalConfig(StrictConfig):
     top_k: PositiveInt = 5
     mode: RetrievalMode = RetrievalMode.DENSE
@@ -284,6 +309,7 @@ class RetrievalConfig(StrictConfig):
     filters: FilterConfig = FilterConfig()
     rewrite: RewriteConfig = RewriteConfig()
     parent_child: ParentChildConfig = ParentChildConfig()
+    dense_index: DenseIndexConfig = DenseIndexConfig()
 
 
 class EvaluationConfig(StrictConfig):

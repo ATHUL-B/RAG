@@ -59,6 +59,13 @@ class ExactVectorStore(VectorStore):
         """Indexed chunks in insertion order (e.g. to know which evidence is indexed)."""
         return tuple(self._chunks)
 
+    @property
+    def vectors(self) -> Matrix:
+        """Row i is the vector of ``chunks[i]`` (read-only view, e.g. to build an ANN index)."""
+        view = self._matrix.view()
+        view.flags.writeable = False
+        return view
+
     # ------------------------------------------------------------------ write
 
     def upsert(self, chunks: Sequence[Chunk], vectors: Matrix) -> None:
@@ -93,13 +100,19 @@ class ExactVectorStore(VectorStore):
     # ------------------------------------------------------------------ read
 
     def search(self, vector: Vector, k: int, filters: Filters | None = None) -> list[ScoredChunk]:
+        return self.search_within(vector, k, self.filter_mask(filters) if filters else None)
+
+    def search_within(
+        self, vector: Vector, k: int, allowed: npt.NDArray[np.bool_] | None
+    ) -> list[ScoredChunk]:
+        """Exact top-k among the chunks ``allowed`` marks (all if None), for callers that
+        already built the filter mask (the HNSW fallback): building it costs as much as
+        the search itself (HLD 028)."""
         if k < 1:
             raise ValueError("k must be >= 1")
         query = np.asarray(vector, dtype=np.float32)
         if query.shape != (self._dimension,):
             raise IndexingError(f"query has shape {query.shape}, expected ({self._dimension},)")
-
-        allowed = self._filter_mask(filters) if filters else None
         candidates = np.flatnonzero(allowed) if allowed is not None else np.arange(len(self))
         if candidates.size == 0:
             return []
@@ -115,7 +128,7 @@ class ExactVectorStore(VectorStore):
             for rank, i in enumerate(top, start=1)
         ]
 
-    def _filter_mask(self, filters: Filters) -> npt.NDArray[np.bool_]:
+    def filter_mask(self, filters: Filters) -> npt.NDArray[np.bool_]:
         """Pre-filter (Part 8): a chunk is allowed only if every filter matches."""
         return np.fromiter(
             (matches(c.metadata, filters) for c in self._chunks),

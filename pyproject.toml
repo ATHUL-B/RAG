@@ -15,6 +15,9 @@ dependencies = [
 ]
 
 [dependency-groups]
+ann = [
+    "faiss-cpu>=1.16.0",
+]
 dev = [
     "mypy>=1.13",
     "pytest>=8.3",
@@ -61,6 +64,10 @@ files = ["src", "tests", "scripts"]
 mypy_path = ["src", "tests"]
 explicit_package_bases = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["faiss", "faiss.*"]  # optional `ann` group, no type hints (HLD 028)
+ignore_missing_imports = true
 
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
