@@ -325,6 +325,9 @@ class GenerationConfig(StrictConfig):
     """Claude only: thinking depth (thinking is always on for current Opus models)."""
     max_tokens: PositiveInt = 16000
     max_sources: PositiveInt = 5
+    prompt_version: Literal["v1", "v2"] = "v1"
+    """System prompt (generation/context.py): v1 (HLD 010/015) or v2 with exact-period,
+    no-guidance, false-premise and explained-refusal rules (HLD 027)."""
     refusal_fallbacks: bool = True
     """Claude only: server-side fallback when a request is declined."""
     ollama_url: str = "http://localhost:11434"
