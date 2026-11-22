@@ -72,6 +72,7 @@ uv run python scripts/evaluate_generation.py --config configs/generation-claude.
 # local model instead: install Ollama (https://ollama.com), `ollama pull llama3.1:8b`, then
 uv run python scripts/evaluate_generation.py --config configs/generation-ollama.yaml --limit 10
 uv run python scripts/evaluate_generation.py --config configs/generation-ollama.yaml --golden evals/unanswerable-v1.jsonl --limit 0  # 2.3: refusal recall
+uv run python scripts/evaluate_generation.py --config configs/generation-ollama.yaml --golden evals/unanswerable-v2.jsonl --limit 0  # near-miss traps (HLD 026)
 # stronger model via an OpenAI-compatible LLM gateway: follow docs/runbooks/gateway-generation-run.md
 uv run python scripts/judge_generations.py runs/<generation-run>   # 2.2: correctness + faithfulness judges (needs `ollama pull qwen2.5:7b`)
 uv run python scripts/judge_calibration.py label    # blind hand labels; then `report` for Cohen's kappa
